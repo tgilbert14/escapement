@@ -1,0 +1,2032 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Escapement · a Desert Data Labs experience</title>
+<meta name="description" content="A grand complication the size of a room. Real gears, your real time. Wind it, chime it, take it apart.">
+<meta property="og:title" content="The Escapement · Desert Data Labs">
+<meta property="og:description" content="A mechanical watch the size of a room, keeping your time. Wind it. Chime it. Take it apart.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://tgilbert14.github.io/escapement/">
+<meta property="og:image" content="https://tgilbert14.github.io/escapement/og-card.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://tgilbert14.github.io/escapement/og-card.png">
+<meta name="theme-color" content="#0b0c0e">
+<link rel="canonical" href="https://tgilbert14.github.io/escapement/">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='26' fill='none' stroke='%23c8a05a' stroke-width='4'/%3E%3Ccircle cx='32' cy='32' r='11' fill='none' stroke='%236c86c9' stroke-width='3'/%3E%3Cpath d='M32 32 L32 14' stroke='%236c86c9' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
+</head>
+<body>
+<style>
+/* THE ESCAPEMENT — tokens. One brand source: charcoal room, brass and rhodium
+   metalwork, thermally-blued steel as the single accent, ruby jewels. */
+:root {
+  --ink: #0b0c0e;            /* the room */
+  --ink-2: #131519;          /* raised charcoal */
+  --paper: #e8e2d4;          /* engraved silver-cream */
+  --paper-dim: #9a958a;      /* secondary engraving */
+  --brass: #c8a05a;          /* gilt wheels */
+  --brass-hi: #f0d9a2;       /* brass specular */
+  --brass-lo: #6d5426;       /* brass shadow */
+  --rhodium: #aab2bc;        /* bridge steelwork */
+  --rhodium-hi: #e3e9f0;
+  --rhodium-lo: #565c66;
+  --blued: #3e5fb8;          /* thermally blued screws + hands */
+  --blued-hi: #7fa0ef;
+  --ruby: #b0263c;           /* jewel bearings */
+  --lume: #b9e6c8;           /* night lume */
+  --focus: #7fa0ef;
+
+  --serif: 'Georgia', 'Times New Roman', serif;
+  --mono: 'Consolas', 'SF Mono', monospace;
+
+  --case-w: min(94vmin, 1040px);
+}
+
+
+/* THE ESCAPEMENT — shell. The case is furniture fixed to the viewport;
+   the movement lives inside it on canvas. Controls are real buttons ON the case. */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--serif);
+  overflow: hidden;
+}
+
+/* The room: a faint cone of light from above, charcoal falloff. */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background:
+    radial-gradient(120vmax 90vmax at 50% -20%, #1c1e23 0%, transparent 55%),
+    radial-gradient(90vmax 90vmax at 50% 120%, #08090b 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px;
+  clip-path: inset(50%); overflow: hidden; white-space: nowrap;
+}
+
+/* ---- masthead: the only words in the room ---- */
+.masthead {
+  position: fixed; top: 28px; left: 34px; z-index: 30;
+  letter-spacing: .04em;
+}
+.masthead .eyebrow {
+  font-family: var(--mono);
+  font-size: 10px; letter-spacing: .34em;
+  color: var(--paper-dim);
+  text-transform: uppercase;
+  margin-bottom: 7px;
+}
+.masthead h1 {
+  font-size: clamp(21px, 3.2vmin, 30px);
+  font-weight: 400;
+  font-variant: small-caps;
+  letter-spacing: .14em;
+  color: var(--paper);
+  text-shadow: 0 1px 0 #000;
+}
+.masthead .beat {
+  font-family: var(--mono);
+  font-size: 10px; letter-spacing: .22em;
+  color: var(--brass);
+  margin-top: 6px;
+}
+
+/* ---- the case ---- */
+.room {
+  position: fixed; inset: 0;
+  display: grid; place-items: center;
+}
+.case {
+  position: relative;
+  width: var(--case-w); height: var(--case-w);
+  border-radius: 50%;
+  /* polished bezel: two rings of metal + inner shadow well */
+  background:
+    radial-gradient(circle at 38% 30%, #3a3d44 0%, #16181c 52%, #26292f 78%, #0c0d10 100%);
+  box-shadow:
+    0 40px 90px rgba(0,0,0,.75),
+    0 4px 18px rgba(0,0,0,.6),
+    inset 0 2px 3px rgba(255,255,255,.10);
+}
+.case::before { /* bezel lip */
+  content: '';
+  position: absolute; inset: 1.35%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 28%, #585d66 0%, #1a1c20 45%, #34373e 76%, #101114 100%);
+  box-shadow: inset 0 3px 9px rgba(0,0,0,.8);
+}
+.case::after { /* crystal glare, above the canvas */
+  content: '';
+  position: absolute; inset: 3.4%;
+  border-radius: 50%;
+  background:
+    linear-gradient(148deg, rgba(255,255,255,.075) 0%, rgba(255,255,255,.015) 26%, transparent 42%),
+    radial-gradient(circle at 72% 82%, rgba(255,255,255,.03), transparent 40%);
+  pointer-events: none;
+  z-index: 6;
+}
+#movement {
+  position: absolute; inset: 3.4%;
+  width: 93.2%; height: 93.2%;
+  border-radius: 50%;
+  display: block;
+  background: #101114;
+  cursor: grab;
+  z-index: 4;
+  touch-action: none;
+}
+#movement.dragging { cursor: grabbing; }
+
+/* ---- case furniture: crown, repeater slide, chrono pushers ---- */
+.ctl {
+  position: absolute; z-index: 20;
+  border: 0; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.ctl::after { /* invisible hit-area expansion: gloved thumbs welcome */
+  content: '';
+  position: absolute; inset: -12px;
+}
+.ctl:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+
+/* the crown — right, 3 o'clock */
+.ctl-crown {
+  right: calc(-1 * var(--case-w) * 0.030);
+  top: 50%;
+  width: calc(var(--case-w) * 0.062);
+  height: calc(var(--case-w) * 0.115);
+  transform: translateY(-50%);
+  border-radius: 22% / 34%;
+  background:
+    repeating-linear-gradient(0deg, #7c6534 0 9%, #d9b877 9% 14%, #57431e 14% 22%),
+    linear-gradient(0deg, #6d5426, #c8a05a);
+  background-blend-mode: overlay;
+  box-shadow: 3px 5px 14px rgba(0,0,0,.65), inset 0 2px 3px rgba(255,255,255,.28), inset 0 -3px 5px rgba(0,0,0,.5);
+}
+.ctl-crown.glint { animation: crownGlint 2.1s ease-in-out infinite; }
+@keyframes crownGlint {
+  0%, 100% { box-shadow: 3px 5px 14px rgba(0,0,0,.65), inset 0 2px 3px rgba(255,255,255,.28), 0 0 0 0 rgba(240,217,162,0); }
+  50%      { box-shadow: 3px 5px 14px rgba(0,0,0,.65), inset 0 2px 3px rgba(255,255,255,.28), 0 0 26px 4px rgba(240,217,162,.5); }
+}
+.ctl-crown:active { transform: translateY(-50%) translateX(2px); }
+
+/* the repeater slide — left flank, slides down when dragged */
+.ctl-slide {
+  left: calc(-1 * var(--case-w) * 0.022);
+  top: 34%;
+  width: calc(var(--case-w) * 0.034);
+  height: calc(var(--case-w) * 0.20);
+  border-radius: 40% / 12%;
+  background: linear-gradient(90deg, #4b5058, #b8bfc9 45%, #596069 100%);
+  box-shadow: -3px 5px 14px rgba(0,0,0,.65), inset 0 2px 2px rgba(255,255,255,.35), inset 0 -3px 5px rgba(0,0,0,.5);
+  transition: transform .18s ease-out;
+}
+.ctl-slide.armed { background: linear-gradient(90deg, #4b5058, #d7ddE6 45%, #596069 100%); }
+
+/* chrono pushers — 2 and 4 o'clock */
+.ctl-push {
+  width: calc(var(--case-w) * 0.052);
+  height: calc(var(--case-w) * 0.045);
+  border-radius: 30% / 46%;
+  background: linear-gradient(180deg, #cdd4dd, #565c66 70%, #21242a);
+  box-shadow: 3px 4px 12px rgba(0,0,0,.6), inset 0 2px 2px rgba(255,255,255,.4);
+}
+.ctl-push.a { right: calc(var(--case-w) * 0.052); top: calc(var(--case-w) * 0.16); transform: rotate(32deg); }
+.ctl-push.b { right: calc(var(--case-w) * 0.052); bottom: calc(var(--case-w) * 0.16); transform: rotate(-32deg); }
+.ctl-push.a:active { transform: rotate(32deg) translateX(3px); }
+.ctl-push.b:active { transform: rotate(-32deg) translateX(3px); }
+
+/* ---- the deck: view + sound chips, bottom center ---- */
+.deck {
+  position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%);
+  display: flex; gap: 10px; z-index: 30;
+}
+.deck button {
+  font-family: var(--mono);
+  font-size: 10px; letter-spacing: .26em; text-transform: uppercase;
+  color: var(--paper-dim);
+  background: rgba(19,21,25,.72);
+  border: 1px solid #2b2e35;
+  border-radius: 999px;
+  padding: 9px 18px 8px;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+  transition: color .2s, border-color .2s;
+}
+.deck button:hover { color: var(--paper); border-color: #4a4f59; }
+.deck button[aria-pressed="true"] { color: var(--brass); border-color: var(--brass-lo); }
+.deck button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* ---- arrival ---- */
+.masthead, .deck { opacity: 1; transition: opacity 1.2s ease .2s; }
+body.arriving .masthead, body.arriving .deck { opacity: 0; }
+
+/* ---- noscript brochure ---- */
+.brochure {
+  position: fixed; inset: 0; z-index: 40;
+  display: grid; place-items: center;
+  background: var(--ink);
+  text-align: center;
+  padding: 5vmin;
+}
+.brochure svg { width: min(64vmin, 460px); height: auto; margin-bottom: 4vmin; }
+.brochure p {
+  font-variant: small-caps; letter-spacing: .18em;
+  color: var(--paper-dim); font-size: 15px;
+}
+
+/* ---- reduced motion: the movement holds a designed pose ---- */
+@media (prefers-reduced-motion: reduce) {
+  .ctl-crown.glint { animation: none; }
+  .masthead, .deck { transition: none; }
+}
+
+@media (forced-colors: active) {
+  .deck button, .ctl { border: 1px solid ButtonText; }
+}
+
+/* phones: tuck the masthead, leave air for the crown and slide */
+@media (max-width: 560px) {
+  .masthead { top: 14px; left: 16px; }
+  .masthead h1 { font-size: 18px; }
+  :root { --case-w: min(89vw, 92vmin); }
+  .ctl::after { inset: -15px; }
+}
+
+</style>
+<a class="sr-only" href="#deck">Skip to controls</a>
+
+<header class="masthead">
+  <p class="eyebrow">Desert Data Labs</p>
+  <h1>The Escapement</h1>
+  <p class="beat" id="beat-line">18,000 A/H · KEEPING YOUR TIME</p>
+</header>
+
+<main class="room">
+  <div class="case" id="case">
+    <canvas id="movement" aria-hidden="true"></canvas>
+    <button id="crown" class="ctl ctl-crown" aria-label="Winding crown. Hold to wind the mainspring."></button>
+    <button id="slide" class="ctl ctl-slide" aria-label="Repeater slide. Chimes the current time on gongs."></button>
+    <button id="push-a" class="ctl ctl-push a" aria-label="Chronograph start and stop"></button>
+    <button id="push-b" class="ctl ctl-push b" aria-label="Chronograph reset"></button>
+  </div>
+
+  <nav class="deck" id="deck" aria-label="Views and sound">
+    <button id="plan-toggle" aria-pressed="false">Plan</button>
+    <button id="sound-toggle" aria-pressed="false">Sound</button>
+  </nav>
+
+  <p class="sr-only" role="status" aria-live="polite" id="sr-status"></p>
+
+  <noscript>
+    <div class="brochure">
+      <div>
+        <svg viewBox="0 0 400 400" role="img" aria-label="A mechanical watch movement: balance wheel, gear train, and mainspring barrel under striped bridges.">
+          <circle cx="200" cy="200" r="192" fill="none" stroke="#34373e" stroke-width="8"/>
+          <circle cx="200" cy="200" r="178" fill="#15171b"/>
+          <g fill="none" stroke="#c8a05a" stroke-width="3">
+            <circle cx="152" cy="122" r="64"/>
+            <circle cx="200" cy="200" r="46"/>
+            <circle cx="258" cy="238" r="38"/>
+            <circle cx="226" cy="292" r="30"/>
+          </g>
+          <g fill="none" stroke="#6d5426" stroke-width="1.5">
+            <circle cx="152" cy="122" r="52"/>
+            <circle cx="200" cy="200" r="34"/>
+            <circle cx="258" cy="238" r="27"/>
+          </g>
+          <circle cx="130" cy="286" r="52" fill="none" stroke="#aab2bc" stroke-width="4"/>
+          <circle cx="130" cy="286" r="40" fill="none" stroke="#565c66" stroke-width="2"/>
+          <path d="M130 286 m-26 0 a26 26 0 1 1 52 0" fill="none" stroke="#3e5fb8" stroke-width="2"/>
+          <g stroke="#b0263c" fill="#b0263c">
+            <circle cx="152" cy="122" r="5"/>
+            <circle cx="200" cy="200" r="5"/>
+            <circle cx="258" cy="238" r="4"/>
+            <circle cx="130" cy="286" r="5"/>
+          </g>
+          <path d="M200 200 L200 96" stroke="#3e5fb8" stroke-width="4" stroke-linecap="round"/>
+          <path d="M200 200 L252 232" stroke="#3e5fb8" stroke-width="6" stroke-linecap="round"/>
+        </svg>
+        <p>A mechanical watch the size of a room, keeping your time.<br>Wound by hand. Chimed on demand. JavaScript is its mainspring.</p>
+      </div>
+    </div>
+  </noscript>
+</main>
+
+<script>
+'use strict';
+/* THE ESCAPEMENT — boot. One namespace, one rAF ticker (stops when the tab
+   hides or nothing animates), one DPR-capped canvas, storage with a seatbelt. */
+const E = {};
+
+/* ---- storage (private mode / blocked storage must never throw) ---- */
+E.store = {
+  get(k, d) { try { const v = localStorage.getItem('esc-' + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem('esc-' + k, JSON.stringify(v)); } catch { /* private mode */ } },
+};
+
+/* ---- environment ---- */
+E.rm = matchMedia('(prefers-reduced-motion: reduce)');
+E.DPR = () => Math.min(devicePixelRatio || 1, 2); /* the phone-cook cap */
+
+/* ---- the one ticker ---- */
+E.ticker = (() => {
+  const tasks = new Set();
+  let rafId = null, last = 0;
+  function frame(now) {
+    rafId = null;
+    const dt = Math.min(50, now - last) || 16; last = now;
+    for (const t of [...tasks]) { if (t(dt, now) === false) tasks.delete(t); }
+    if (tasks.size && !document.hidden) rafId = requestAnimationFrame(frame);
+  }
+  function kick() { if (rafId === null && tasks.size && !document.hidden) { last = performance.now(); rafId = requestAnimationFrame(frame); } }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) kick(); });
+  return {
+    add(t) { tasks.add(t); kick(); return () => tasks.delete(t); },
+    kick,
+  };
+})();
+
+/* ---- the movement canvas ---- */
+E.cv = document.getElementById('movement');
+E.cx = E.cv.getContext('2d');
+
+/* World space: the movement is authored in a fixed unit square, radius R=520
+   (plate 480 + margin). Camera maps world -> canvas pixels. */
+E.R = 520;
+E.cam = { x: 0, y: 0, z: 1, tz: 1, tx: 0, ty: 0 }; /* current + targets, lerped in render */
+
+E.view = { w: 0, h: 0, px: 1 }; /* css size + device pixel ratio actually applied */
+E.resize = () => {
+  const r = E.cv.getBoundingClientRect();
+  if (!r.width) return;
+  const px = E.DPR();
+  const w = Math.round(r.width * px), h = Math.round(r.height * px);
+  if (w === E.cv.width && h === E.cv.height) return;
+  E.cv.width = w; E.cv.height = h;
+  E.view = { w: r.width, h: r.height, px };
+  E.baseScale = (Math.min(w, h) / 2) / E.R; /* world fits the circle at z=1 */
+  if (E.forge && E.forge.rebake) E.forge.rebake();
+  E.ticker.kick();
+};
+addEventListener('resize', () => { clearTimeout(E._rzT); E._rzT = setTimeout(E.resize, 120); });
+
+/* world -> device px */
+E.w2s = (wx, wy) => {
+  const s = E.baseScale * E.cam.z;
+  return [E.cv.width / 2 + (wx - E.cam.x) * s, E.cv.height / 2 + (wy - E.cam.y) * s];
+};
+/* device px -> world */
+E.s2w = (sx, sy) => {
+  const s = E.baseScale * E.cam.z;
+  return [(sx - E.cv.width / 2) / s + E.cam.x, (sy - E.cv.height / 2) / s + E.cam.y];
+};
+
+/* ---- helpers ---- */
+E.TAU = Math.PI * 2;
+E.clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+E.lerp = (a, b, t) => a + (b - a) * t;
+E.ease = t => t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+
+/* seeded PRNG for stable decorative randomness (screw slot angles, perlage jitter) */
+E.mulberry = (seed) => () => {
+  seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+  let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+  t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+  return ((t ^ t >>> 14) >>> 0) / 4294967296;
+};
+
+/* announce to screen readers (rate-limited by callers) */
+E.say = (msg) => { const el = document.getElementById('sr-status'); if (el) el.textContent = msg; };
+
+
+/* THE ESCAPEMENT — time. The movement keeps the visitor's REAL local time
+   through a real gear train:
+
+     barrel ─ center wheel (1 rev/h) ─ third (×7.5) ─ fourth (1 rev/min)
+                                                        └─ escape (×10, 15 teeth)
+                                                             └─ pallet ─ balance
+
+   18,000 A/H: the balance beats 5 times a second (period 400ms). Stepped
+   wheels advance on the 200ms tick grid; the minute and hour creep
+   continuously, exactly like the metal would.
+
+   The mainspring is real theater: it drains (even while you are away),
+   the balance dies when it empties, and winding the crown brings the watch
+   back — then the hands SPIN to catch up with the true time, because the
+   movement always knows what time it really is. */
+E.time = (() => {
+  const BEAT = 200;                    /* ms per tick */
+  const DRAIN = 1 / 480;               /* full reserve = 8 minutes of run */
+  const WIND = 0.05;                   /* reserve per crown click */
+  const SYNODIC = 29.530588853;        /* days */
+  const NEWMOON = Date.UTC(2000, 0, 6, 18, 14) / 86400000; /* epoch, in days */
+
+  const T = {
+    phase: 'run',        /* run | die | stop | spin */
+    reserve: 0.55,
+    deficit: 0,          /* ms the display lags true time (grows while stopped) */
+    dieT0: 0,            /* when dying started */
+    spinT0: 0, spinFrom: 0,
+    amp: 1,              /* balance amplitude factor 0..1 */
+    chrono: { on: false, ms: 0 },
+    justTicked: false,
+  };
+
+  /* ---- persistence: the watch remembers being left alone ---- */
+  const saved = E.store.get('movement', null);
+  if (saved && saved.at) {
+    const gone = Math.max(0, Date.now() - saved.at) / 1000;
+    const wasRunning = saved.phase !== 'stop';
+    let reserve = saved.reserve, deficit = saved.deficit || 0;
+    if (wasRunning) {
+      const ranFor = Math.min(gone, reserve / DRAIN);
+      reserve -= ranFor * DRAIN;
+      deficit += (gone - ranFor) * 1000;
+    } else {
+      deficit += gone * 1000;
+    }
+    T.reserve = E.clamp(reserve, 0, 1);
+    T.deficit = deficit;
+    T.phase = T.reserve <= 0.001 ? 'stop' : 'run';
+    T.amp = T.phase === 'run' ? 1 : 0;
+    if (saved.chrono) T.chrono.ms = saved.chrono;
+  }
+  const persist = () => E.store.set('movement', {
+    at: Date.now(), reserve: T.reserve, deficit: Math.round(T.deficit),
+    phase: T.phase === 'stop' ? 'stop' : 'run', chrono: Math.round(T.chrono.ms),
+  });
+  setInterval(persist, 10000);
+  addEventListener('pagehide', persist);
+
+  /* ---- the display clock ---- */
+  const dispMs = () => Date.now() - T.deficit;
+
+  /* per-frame advance (called from the render loop) */
+  let lastTicks = Math.floor(dispMs() / BEAT);
+  function step(dt) {
+    const dts = dt / 1000;
+    if (T.phase === 'run' || T.phase === 'die' || T.phase === 'spin') {
+      if (T.phase !== 'spin') T.reserve = Math.max(0, T.reserve - dts * DRAIN);
+      if (T.chrono.on && T.phase === 'run') T.chrono.ms += dt;
+    }
+    if (T.phase === 'run' && T.reserve <= 0) { T.phase = 'die'; T.dieT0 = performance.now(); }
+    if (T.phase === 'die') {
+      const p = (performance.now() - T.dieT0) / 8000;
+      T.amp = Math.max(0, 1 - p);
+      if (p >= 1) { T.phase = 'stop'; T.amp = 0; E.say('The movement has stopped. Hold the crown to wind it.'); persist(); }
+    }
+    if (T.phase === 'stop') { T.deficit += dt; }
+    if (T.phase === 'spin') {
+      const p = E.clamp((performance.now() - T.spinT0) / 2400, 0, 1);
+      T.deficit = T.spinFrom * (1 - E.ease(p));
+      T.amp = Math.min(1, T.amp + dts * 2);
+      if (p >= 1) { T.deficit = 0; T.phase = 'run'; E.say('Wound and running. The hands have caught up with your time.'); persist(); }
+    }
+    /* tick detection for the sound engine + escape-wheel settle */
+    const ticks = Math.floor(dispMs() / BEAT);
+    T.justTicked = (T.phase === 'run' || T.phase === 'die') && ticks !== lastTicks;
+    lastTicks = ticks;
+  }
+
+  /* ---- winding ---- */
+  function wind(clicks = 1) {
+    const before = T.reserve;
+    T.reserve = E.clamp(T.reserve + WIND * clicks, 0, 1);
+    if ((T.phase === 'stop' || T.phase === 'die') && T.reserve > 0.06) {
+      /* she wakes: wrap the deficit to the 12h dial, then spin home */
+      T.spinFrom = T.deficit % 43200000;
+      T.spinT0 = performance.now();
+      T.phase = 'spin';
+    }
+    return T.reserve - before; /* how much actually took (0 at full wind) */
+  }
+
+  /* ---- angles (radians) for every rotating part, from the display clock ---- */
+  function angles() {
+    const ms = dispMs();
+    const tick = Math.floor(ms / BEAT);
+    const tIn = (ms % BEAT) / BEAT;                 /* 0..1 inside the beat */
+    /* stepped advance with a fast settle (the wheel lands, it doesn't glide) */
+    const settle = Math.min(1, tIn * 6);
+    const stepped = (stepsPerRev) => E.TAU * ((tick % stepsPerRev) + settle * ((T.phase === 'run' || T.phase === 'die' || T.phase === 'spin') ? 1 : 0)) / stepsPerRev;
+
+    const s = ms / 1000;
+    const running = T.phase !== 'stop';
+    const d = new Date(ms);
+    const secOfDay = d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds() + d.getMilliseconds() / 1000;
+
+    /* balance: sinusoid on the 400ms period, ticks at the zero crossings */
+    const phase = (ms % (BEAT * 2)) / (BEAT * 2);
+    const balance = Math.sin(phase * E.TAU) * 2.4 * T.amp; /* ±137° at full amplitude */
+    /* pallet fork: square-ish wave with soft corners, ±10° */
+    const fork = Math.tanh(Math.sin(phase * E.TAU) * 6) * 0.17 * (T.amp > 0.05 ? 1 : 0);
+
+    return {
+      balance, fork,
+      escape: running ? stepped(30) : E.TAU * (lastTicks % 30) / 30,
+      fourth: E.TAU * ((secOfDay % 60) / 60),               /* seconds hand wheel */
+      third:  -E.TAU * ((secOfDay % 450) / 450),
+      center: E.TAU * ((secOfDay % 3600) / 3600),           /* minute */
+      hour:   E.TAU * ((secOfDay % 43200) / 43200),
+      barrel: -E.TAU * ((secOfDay % 21600) / 21600),        /* 1 rev / 6h */
+      moon:   E.TAU * (((ms / 86400000 - NEWMOON) / SYNODIC) % 1) / 2, /* half turn per month (two moons on the disc) */
+      chronoSec: E.TAU * ((T.chrono.ms % 60000) / 60000),
+      chronoMin: E.TAU * ((T.chrono.ms % 1800000) / 1800000),
+      reserve: T.reserve,
+      seconds: stepped(300),                                 /* 5 steps/s over 60s — small-seconds hand */
+      secOfDay,
+    };
+  }
+
+  /* the repeater reads the display clock the way the racks would */
+  function repeaterCount() {
+    const d = new Date(dispMs());
+    let h = d.getHours() % 12; if (h === 0) h = 12;
+    const q = Math.floor(d.getMinutes() / 15);
+    const m = d.getMinutes() % 15;
+    return { hours: h, quarters: q, minutes: m };
+  }
+
+  function timeLabel() {
+    const d = new Date(dispMs());
+    const h = d.getHours(), m = d.getMinutes();
+    const h12 = (h % 12) || 12;
+    return `${h12}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`;
+  }
+
+  return { T, step, wind, angles, repeaterCount, dispMs, timeLabel, persist, BEAT };
+})();
+
+
+/* THE ESCAPEMENT — forge. Bakes every piece of metal once (per zoom tier),
+   so the frame loop only transforms sprites. All positions are SOLVED from
+   real mesh constraints: two wheels touch where pitch circles are tangent.
+
+   Layers, bottom to top: plate → barrel+moon → train wheels → gongs →
+   fork → bridges → balance → cock → dial furniture → hands (live). */
+E.forge = (() => {
+  const TAU = E.TAU;
+
+  /* ---------- the layout (world units, plate radius 480) ---------- */
+  const L = {};
+  L.plateR = 480;
+  /* wheel radii: wheel = toothed pitch radius, pinion = its arbor pinion */
+  L.barrel = { r: 150, pinion: 0 };
+  L.center = { r: 140, pinion: 38 };
+  L.third  = { r: 105, pinion: 26 };
+  L.fourth = { r: 90,  pinion: 24 };
+  L.escape = { r: 52,  pinion: 20 };
+  L.balanceR = 125;
+
+  /* positions: center wheel at origin; fourth fixed at 6 o'clock;
+     third solved from tangency to both; barrel + escape placed on tangent circles */
+  L.centerP = [0, 0];
+  L.fourthP = [0, 240];
+  {
+    const d1 = L.center.r + L.third.pinion;       /* |C→third| */
+    const d2 = L.third.r + L.fourth.pinion;       /* |third→fourth| */
+    const D = 240;
+    const y = (d1 * d1 - d2 * d2 + D * D) / (2 * D);
+    const x = Math.sqrt(Math.max(0, d1 * d1 - y * y));
+    L.thirdP = [x, y];                            /* right of the line, arcing east */
+  }
+  {
+    const a = 233 * Math.PI / 180;                /* barrel at 10:30 */
+    const d = L.barrel.r + L.center.pinion;
+    L.barrelP = [Math.cos(a) * d, Math.sin(a) * d];
+  }
+  {
+    const a = 205 * Math.PI / 180;                /* escape swings down-left off fourth */
+    const d = L.fourth.r + L.escape.pinion;
+    L.escapeP = [L.fourthP[0] + Math.cos(a) * d, L.fourthP[1] + Math.sin(a) * d];
+  }
+  {
+    const a = 187 * Math.PI / 180;                /* fork reaches on toward the balance */
+    L.forkP    = [L.escapeP[0] + Math.cos(a) * 75,  L.escapeP[1] + Math.sin(a) * 75];
+    L.balanceP = [L.forkP[0] + Math.cos(a) * 100,   L.forkP[1] + Math.sin(a) * 100];
+  }
+  L.hourP   = [0, -228];    /* regulator hour ring, floating dial furniture */
+  L.chronoP = [252, -6];    /* 30-minute counter */
+  L.moonP   = L.barrelP;    /* moon lives in the barrel cover aperture */
+  L.reserveArc = { r: 434, a0: 155 * Math.PI / 180, a1: 205 * Math.PI / 180 }; /* west rim */
+  L.hammerP = [-386, 118];  /* repeater hammers, west rim inside the gongs */
+
+  /* ---------- tiny paint helpers ---------- */
+  const cvs = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+  const rnd = E.mulberry(20260716);
+
+  function metal(ctx, r, base, hi, lo) {
+    const g = ctx.createRadialGradient(-r * .4, -r * .5, r * .1, 0, 0, r * 1.25);
+    g.addColorStop(0, hi); g.addColorStop(.45, base); g.addColorStop(1, lo);
+    return g;
+  }
+
+  /* Geneva stripes: parallel light bands, clipped by the caller */
+  function stripes(ctx, w, h, step, alpha) {
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.rotate(-0.42);
+    for (let x = -w; x < w; x += step) {
+      const g = ctx.createLinearGradient(x, 0, x + step, 0);
+      g.addColorStop(0, 'rgba(255,255,255,0)');
+      g.addColorStop(.5, 'rgba(255,255,255,.13)');
+      g.addColorStop(.62, 'rgba(0,0,0,.14)');
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(x, -h, step, h * 2);
+    }
+    ctx.restore();
+  }
+
+  /* perlage: overlapping brushed circles on the mainplate */
+  function perlage(ctx, R, step, alpha) {
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    for (let y = -R; y < R; y += step * .82) {
+      for (let x = -R; x < R; x += step) {
+        const ox = x + ((Math.round(y / (step * .82)) % 2) ? step / 2 : 0) + (rnd() - .5) * 2;
+        if (ox * ox + y * y > R * R) continue;
+        const g = ctx.createRadialGradient(ox - step * .18, y - step * .18, 0, ox, y, step * .62);
+        g.addColorStop(0, 'rgba(255,255,255,.05)');
+        g.addColorStop(.8, 'rgba(255,255,255,.012)');
+        g.addColorStop(1, 'rgba(0,0,0,.03)');
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(ox, y, step * .62, 0, TAU); ctx.fill();
+      }
+    }
+    ctx.restore();
+  }
+
+  function screw(ctx, x, y, r, slotA) {
+    ctx.save(); ctx.translate(x, y);
+    const g = ctx.createRadialGradient(-r * .3, -r * .4, 0, 0, 0, r);
+    g.addColorStop(0, '#8fa6e8'); g.addColorStop(.55, '#3e5fb8'); g.addColorStop(1, '#1c2c60');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,.55)'; ctx.lineWidth = r * .16; ctx.stroke();
+    ctx.rotate(slotA);
+    ctx.strokeStyle = 'rgba(8,10,20,.9)'; ctx.lineWidth = r * .3;
+    ctx.beginPath(); ctx.moveTo(-r * .78, 0); ctx.lineTo(r * .78, 0); ctx.stroke();
+    ctx.restore();
+  }
+
+  function jewel(ctx, x, y, r) {
+    ctx.save(); ctx.translate(x, y);
+    /* gold chaton */
+    ctx.fillStyle = metal(ctx, r * 1.8, '#c8a05a', '#f0d9a2', '#6d5426');
+    ctx.beginPath(); ctx.arc(0, 0, r * 1.7, 0, TAU); ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,.4)'; ctx.lineWidth = 1.2; ctx.stroke();
+    const g = ctx.createRadialGradient(-r * .35, -r * .4, 0, 0, 0, r);
+    g.addColorStop(0, '#ff97a8'); g.addColorStop(.5, '#b0263c'); g.addColorStop(1, '#570e1c');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.5)';
+    ctx.beginPath(); ctx.arc(-r * .3, -r * .35, r * .22, 0, TAU); ctx.fill();
+    ctx.restore();
+  }
+
+  /* a toothed wheel sprite: rim, teeth, face, crescent spoke cutouts, arbor */
+  function bakeWheel(spec) {
+    const { r, teeth, spokes, style, pinion, px } = spec;
+    const pad = 6;
+    const S = Math.ceil((r + pad) * 2 * px);
+    const c = cvs(S, S), ctx = c.getContext('2d');
+    ctx.translate(S / 2, S / 2); ctx.scale(px, px);
+
+    const toothH = Math.max(5, r * 0.075);
+    const rootR = r - toothH * 0.4;
+
+    /* teeth: rounded trapezoids around the rim */
+    ctx.beginPath();
+    for (let i = 0; i < teeth; i++) {
+      const a = (i / teeth) * TAU;
+      const w = (TAU / teeth);
+      const t0 = a - w * .26, t1 = a - w * .10, t2 = a + w * .10, t3 = a + w * .26;
+      ctx.lineTo(Math.cos(t0) * rootR, Math.sin(t0) * rootR);
+      ctx.lineTo(Math.cos(t1) * (r + toothH * .6), Math.sin(t1) * (r + toothH * .6));
+      ctx.lineTo(Math.cos(t2) * (r + toothH * .6), Math.sin(t2) * (r + toothH * .6));
+      ctx.lineTo(Math.cos(t3) * rootR, Math.sin(t3) * rootR);
+    }
+    ctx.closePath();
+    const brass = style === 'steel'
+      ? { base: '#9aa3ad', hi: '#dfe6ee', lo: '#4b5157' }
+      : { base: '#c8a05a', hi: '#f0d9a2', lo: '#6d5426' };
+    ctx.fillStyle = metal(ctx, r, brass.base, brass.hi, brass.lo);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = 1; ctx.stroke();
+
+    /* face ring + inner web */
+    ctx.beginPath(); ctx.arc(0, 0, rootR * .995, 0, TAU);
+    ctx.fillStyle = metal(ctx, rootR, brass.base, brass.hi, brass.lo);
+    ctx.fill();
+
+    /* crescent cutouts between spokes (see the plate through the wheel) */
+    if (spokes > 0) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'destination-out';
+      const inner = Math.max(pinion + 14, r * .24), outer = rootR * .82;
+      for (let i = 0; i < spokes; i++) {
+        const a0 = (i / spokes) * TAU + 0.16, a1 = ((i + 1) / spokes) * TAU - 0.16;
+        ctx.beginPath();
+        ctx.arc(0, 0, outer, a0, a1);
+        ctx.arc(0, 0, inner, a1, a0, true);
+        ctx.closePath(); ctx.fill();
+      }
+      ctx.restore();
+      /* bevel the spoke edges with a hairline */
+      ctx.strokeStyle = 'rgba(255,255,255,.18)'; ctx.lineWidth = 1.1;
+      for (let i = 0; i < spokes; i++) {
+        const a0 = (i / spokes) * TAU + 0.16, a1 = ((i + 1) / spokes) * TAU - 0.16;
+        ctx.beginPath(); ctx.arc(0, 0, outer, a0, a1); ctx.stroke();
+        ctx.beginPath(); ctx.arc(0, 0, inner, a0, a1); ctx.stroke();
+      }
+    }
+
+    /* pinion + arbor */
+    if (pinion) {
+      ctx.fillStyle = metal(ctx, pinion, '#9aa3ad', '#dfe6ee', '#4b5157');
+      ctx.beginPath(); ctx.arc(0, 0, pinion, 0, TAU); ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,.4)'; ctx.lineWidth = 1; ctx.stroke();
+      /* pinion leaves */
+      ctx.strokeStyle = 'rgba(0,0,0,.28)'; ctx.lineWidth = 1.4;
+      const leaves = 8;
+      for (let i = 0; i < leaves; i++) {
+        const a = (i / leaves) * TAU;
+        ctx.beginPath(); ctx.moveTo(Math.cos(a) * pinion * .35, Math.sin(a) * pinion * .35);
+        ctx.lineTo(Math.cos(a) * pinion * .95, Math.sin(a) * pinion * .95); ctx.stroke();
+      }
+    }
+    ctx.fillStyle = '#22252b';
+    ctx.beginPath(); ctx.arc(0, 0, Math.max(3.4, r * .03), 0, TAU); ctx.fill();
+    return { c, r: r + pad, px };
+  }
+
+  /* escape wheel: 15 club-shaped teeth, unmistakable at close zoom */
+  function bakeEscape(px) {
+    const r = L.escape.r, pad = 8;
+    const S = Math.ceil((r + pad) * 2 * px);
+    const c = cvs(S, S), ctx = c.getContext('2d');
+    ctx.translate(S / 2, S / 2); ctx.scale(px, px);
+    ctx.beginPath();
+    const n = 15;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * TAU;
+      const tip = a, heel = a + 0.16, root = a + (TAU / n) * .55;
+      ctx.lineTo(Math.cos(tip) * (r + 7), Math.sin(tip) * (r + 7));
+      ctx.lineTo(Math.cos(heel) * (r + 2), Math.sin(heel) * (r + 2));
+      ctx.lineTo(Math.cos(root) * (r * .8), Math.sin(root) * (r * .8));
+    }
+    ctx.closePath();
+    ctx.fillStyle = metal(ctx, r, '#c9b078', '#f4e3b0', '#6d5426');
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,.4)'; ctx.lineWidth = .9; ctx.stroke();
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.beginPath(); ctx.arc(0, 0, r * .52, 0, TAU); ctx.fill();
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.strokeStyle = 'rgba(255,255,255,.2)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(0, 0, r * .52, 0, TAU); ctx.stroke();
+    for (let i = 0; i < 3; i++) {
+      const a = (i / 3) * TAU;
+      ctx.strokeStyle = 'rgba(201,176,120,1)'; ctx.lineWidth = 7;
+      ctx.beginPath(); ctx.moveTo(Math.cos(a) * r * .1, Math.sin(a) * r * .1);
+      ctx.lineTo(Math.cos(a) * r * .78, Math.sin(a) * r * .78); ctx.stroke();
+    }
+    ctx.fillStyle = '#22252b';
+    ctx.beginPath(); ctx.arc(0, 0, 3.4, 0, TAU); ctx.fill();
+    return { c, r: r + pad, px };
+  }
+
+  /* balance wheel sprite: two-arm wheel with a polished rim + timing screws */
+  function bakeBalance(px) {
+    const r = L.balanceR, pad = 10;
+    const S = Math.ceil((r + pad) * 2 * px);
+    const c = cvs(S, S), ctx = c.getContext('2d');
+    ctx.translate(S / 2, S / 2); ctx.scale(px, px);
+    /* rim */
+    ctx.lineWidth = r * .13;
+    ctx.strokeStyle = metal(ctx, r, '#c8a05a', '#f0d9a2', '#6d5426');
+    ctx.beginPath(); ctx.arc(0, 0, r * .9, 0, TAU); ctx.stroke();
+    /* timing screws on the rim */
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * TAU + .13;
+      const sr = i % 3 === 0 ? r * .052 : r * .038;
+      ctx.save();
+      ctx.translate(Math.cos(a) * r * .9, Math.sin(a) * r * .9);
+      ctx.fillStyle = i % 3 === 0 ? '#e9d6a4' : '#8a6f38';
+      ctx.beginPath(); ctx.arc(0, 0, sr, 0, TAU); ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,.45)'; ctx.lineWidth = 1; ctx.stroke();
+      ctx.restore();
+    }
+    /* two crossing arms */
+    ctx.lineWidth = r * .085; ctx.lineCap = 'round';
+    ctx.strokeStyle = metal(ctx, r, '#b6924e', '#e3c887', '#5d4720');
+    ctx.beginPath(); ctx.moveTo(-r * .86, 0); ctx.lineTo(r * .86, 0); ctx.stroke();
+    /* roller + staff */
+    ctx.fillStyle = metal(ctx, 14, '#9aa3ad', '#dfe6ee', '#4b5157');
+    ctx.beginPath(); ctx.arc(0, 0, 13, 0, TAU); ctx.fill();
+    /* impulse jewel on the roller (drives the fork horns) */
+    ctx.fillStyle = '#d84a60';
+    ctx.beginPath(); ctx.arc(0, -17, 4.2, 0, TAU); ctx.fill();
+    return { c, r: r + pad, px };
+  }
+
+  /* pallet fork sprite (drawn pointing +y toward the escape wheel) */
+  function bakeFork(px) {
+    const len = 78, pad = 26;
+    const S = Math.ceil((len + pad) * 2 * px);
+    const c = cvs(S, S), ctx = c.getContext('2d');
+    ctx.translate(S / 2, S / 2); ctx.scale(px, px);
+    ctx.strokeStyle = metal(ctx, len, '#9aa3ad', '#dfe6ee', '#4b5157');
+    ctx.lineWidth = 9; ctx.lineCap = 'round';
+    /* the stem: pivot at origin; horns toward -y (balance); pallets toward +y (escape) */
+    ctx.beginPath(); ctx.moveTo(0, -len * .48); ctx.lineTo(0, len * .58); ctx.stroke();
+    /* fork horns */
+    ctx.lineWidth = 6;
+    ctx.beginPath(); ctx.moveTo(0, -len * .48); ctx.lineTo(-11, -len * .78); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, -len * .48); ctx.lineTo(11, -len * .78); ctx.stroke();
+    /* pallet arms + ruby pallet stones */
+    ctx.lineWidth = 8;
+    ctx.beginPath(); ctx.moveTo(0, len * .58); ctx.lineTo(-30, len * .82); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, len * .58); ctx.lineTo(26, len * .86); ctx.stroke();
+    for (const [x, y, a] of [[-33, len * .86, .6], [29, len * .9, -.6]]) {
+      ctx.save(); ctx.translate(x, y); ctx.rotate(a);
+      ctx.fillStyle = '#c23049';
+      ctx.fillRect(-3.6, -7, 7.2, 14);
+      ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 1;
+      ctx.strokeRect(-3.6, -7, 7.2, 14);
+      ctx.restore();
+    }
+    ctx.fillStyle = '#22252b';
+    ctx.beginPath(); ctx.arc(0, 0, 4, 0, TAU); ctx.fill();
+    return { c, r: len + pad, px, pivotShift: 0 };
+  }
+
+  /* ---------- the static plates ---------- */
+  function engravedArc(ctx, text, cx, cy, r, a0, a1, size, color, flip) {
+    ctx.save();
+    ctx.fillStyle = color;
+    ctx.font = `${size}px Georgia, serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const n = text.length;
+    for (let i = 0; i < n; i++) {
+      const a = a0 + (a1 - a0) * (n === 1 ? .5 : i / (n - 1));
+      ctx.save();
+      ctx.translate(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+      ctx.rotate(a + (flip ? -1 : 1) * Math.PI / 2);
+      ctx.fillText(text[i], 0, 0);
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+
+  function bakePlate(px) {
+    const R = L.plateR, pad = 40;
+    const S = Math.ceil((R + pad) * 2 * px);
+    const c = cvs(S, S), ctx = c.getContext('2d');
+    ctx.translate(S / 2, S / 2); ctx.scale(px, px);
+
+    /* mainplate: dark rhodium, vignetted */
+    const g = ctx.createRadialGradient(-R * .3, -R * .4, R * .1, 0, 0, R * 1.05);
+    g.addColorStop(0, '#2e3138'); g.addColorStop(.6, '#212429'); g.addColorStop(1, '#141619');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(0, 0, R, 0, TAU); ctx.fill();
+    ctx.save();
+    ctx.beginPath(); ctx.arc(0, 0, R, 0, TAU); ctx.clip();
+    perlage(ctx, R, 46, .8);
+    ctx.restore();
+
+    /* rim step */
+    ctx.strokeStyle = 'rgba(255,255,255,.09)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(0, 0, R - 3, 0, TAU); ctx.stroke();
+    ctx.strokeStyle = 'rgba(0,0,0,.55)'; ctx.lineWidth = 7;
+    ctx.beginPath(); ctx.arc(0, 0, R - 9, 0, TAU); ctx.stroke();
+
+    /* minute chapter ring: 60 ticks, applied brass dots each 5 */
+    const cr = 402;
+    ctx.strokeStyle = 'rgba(232,226,212,.5)';
+    for (let i = 0; i < 60; i++) {
+      const a = (i / 60) * TAU - Math.PI / 2;
+      const long = i % 5 === 0;
+      ctx.lineWidth = long ? 3 : 1.2;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * (cr - (long ? 16 : 9)), Math.sin(a) * (cr - (long ? 16 : 9)));
+      ctx.lineTo(Math.cos(a) * cr, Math.sin(a) * cr);
+      ctx.stroke();
+    }
+
+    /* engravings */
+    engravedArc(ctx, 'DESERT DATA LABS', 0, 0, 448, Math.PI * .5 + .62, Math.PI * .5 - .62, 21, 'rgba(232,226,212,.42)', true);
+    engravedArc(ctx, 'CAL. DDL-1 · 18000 A/H · 23 JEWELS', 0, 0, 428, -Math.PI * .5 - .58, -Math.PI * .5 + .58, 16, 'rgba(200,160,90,.62)', false);
+
+    /* power reserve track along the west rim */
+    const { r: rr, a0, a1 } = L.reserveArc;
+    ctx.strokeStyle = 'rgba(232,226,212,.35)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(0, 0, rr, a0, a1); ctx.stroke();
+    for (let i = 0; i <= 8; i++) {
+      const a = a0 + (a1 - a0) * (i / 8);
+      ctx.lineWidth = i % 4 === 0 ? 2.6 : 1.2;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * (rr - 8), Math.sin(a) * (rr - 8));
+      ctx.lineTo(Math.cos(a) * (rr + 8), Math.sin(a) * (rr + 8));
+      ctx.stroke();
+    }
+    ctx.font = '13px Georgia, serif'; ctx.fillStyle = 'rgba(232,226,212,.45)';
+    ctx.textAlign = 'center';
+    ctx.fillText('▲', Math.cos(a1) * (rr - 24), Math.sin(a1) * (rr - 24) + 4);
+    ctx.fillText('▽', Math.cos(a0) * (rr - 24), Math.sin(a0) * (rr - 24) + 4);
+
+    return { c, r: R + pad, px };
+  }
+
+  /* a soft blob bridge through anchor points, striped + beveled + jeweled */
+  function bridgePath(ctx, pts) {
+    ctx.beginPath();
+    const n = pts.length;
+    ctx.moveTo((pts[0][0] + pts[n - 1][0]) / 2, (pts[0][1] + pts[n - 1][1]) / 2);
+    for (let i = 0; i < n; i++) {
+      const p = pts[i], q = pts[(i + 1) % n];
+      ctx.quadraticCurveTo(p[0], p[1], (p[0] + q[0]) / 2, (p[1] + q[1]) / 2);
+    }
+    ctx.closePath();
+  }
+
+  function bakeBridges(px) {
+    const R = L.plateR, pad = 40;
+    const S = Math.ceil((R + pad) * 2 * px);
+    const c = cvs(S, S), ctx = c.getContext('2d');
+    ctx.translate(S / 2, S / 2); ctx.scale(px, px);
+
+    const drawBridge = (pts, jewels, screws_) => {
+      ctx.save();
+      bridgePath(ctx, pts);
+      ctx.save();
+      ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 18; ctx.shadowOffsetY = 8;
+      ctx.fillStyle = '#3a3e46';
+      ctx.fill();
+      ctx.restore();
+      bridgePath(ctx, pts);
+      const g = ctx.createLinearGradient(-R, -R, R, R);
+      g.addColorStop(0, '#4b505a'); g.addColorStop(.5, '#3c4048'); g.addColorStop(1, '#2c2f35');
+      ctx.fillStyle = g; ctx.fill();
+      ctx.clip();
+      stripes(ctx, R * 1.5, R * 1.5, 44, .5);
+      ctx.restore();
+      /* anglage: polished bevel edge */
+      bridgePath(ctx, pts);
+      ctx.strokeStyle = 'rgba(240,217,162,.5)'; ctx.lineWidth = 2.6; ctx.stroke();
+      bridgePath(ctx, pts);
+      ctx.strokeStyle = 'rgba(0,0,0,.5)'; ctx.lineWidth = 5.6; ctx.save();
+      ctx.globalCompositeOperation = 'destination-over'; ctx.stroke(); ctx.restore();
+      for (const [x, y, r] of jewels) jewel(ctx, x, y, r);
+      for (const [x, y, r] of screws_) screw(ctx, x, y, r, rnd() * TAU);
+    };
+
+    const B = L.barrelP, T3 = L.thirdP, F = L.fourthP, ES = L.escapeP;
+
+    /* center bridge: a waisted arm from under the hour ring to the center arbor */
+    drawBridge(
+      [[-10, -352], [58, -308], [56, -196], [30, -120], [52, -48], [-4, -18], [-56, -60], [-40, -170], [-62, -290]],
+      [[0, 0, 8]],
+      [[8, -308, 12], [12, -66, 11]]
+    );
+
+    /* barrel strap: a slim bar across the barrel's south, seat for the ratchet */
+    drawBridge(
+      [[B[0] - 118, B[1] + 6], [B[0], B[1] - 26], [B[0] + 118, B[1] + 8], [B[0] + 96, B[1] + 62], [B[0] - 96, B[1] + 60]],
+      [[B[0], B[1], 7]],
+      [[B[0] - 92, B[1] + 34, 10], [B[0] + 92, B[1] + 36, 10]]
+    );
+
+    /* train bridge: a kidney over the third + fourth arbors, nothing more */
+    drawBridge(
+      [[T3[0] - 34, T3[1] - 34], [T3[0] + 62, T3[1] - 44], [T3[0] + 74, T3[1] + 40], [F[0] + 88, F[1] + 20], [F[0] + 52, F[1] + 88], [F[0] - 34, F[1] + 62], [T3[0] - 58, T3[1] + 42]],
+      [[T3[0], T3[1], 6], [F[0], F[1], 6]],
+      [[T3[0] + 44, T3[1] - 16, 10], [F[0] + 46, F[1] + 52, 10]]
+    );
+
+    /* escape cock: small tapered plate */
+    drawBridge(
+      [[ES[0] + 66, ES[1] - 60], [ES[0] + 96, ES[1] + 40], [ES[0] - 8, ES[1] + 66], [ES[0] - 40, ES[1] - 20]],
+      [[ES[0], ES[1], 5]],
+      [[ES[0] + 62, ES[1] + 18, 9]]
+    );
+
+    return { c, r: R + pad, px };
+  }
+
+  /* balance cock: its own sprite, drawn ABOVE the balance */
+  function bakeCock(px) {
+    const R = 250, pad = 20;
+    const S = Math.ceil((R + pad) * 2 * px);
+    const c = cvs(S, S), ctx = c.getContext('2d');
+    ctx.translate(S / 2, S / 2); ctx.scale(px, px);
+    /* authored around origin = balance staff; a slim arm reaching SW to the rim */
+    const pts = [[-8, -34], [24, -18], [26, 20], [-6, 34], [-96, 84], [-168, 112], [-182, 74], [-100, 26], [-44, -14]];
+    bridgePath(ctx, pts);
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,.65)'; ctx.shadowBlur = 16; ctx.shadowOffsetY = 7;
+    ctx.fillStyle = '#3d414a'; ctx.fill();
+    ctx.restore();
+    bridgePath(ctx, pts);
+    const g = ctx.createLinearGradient(-160, -40, 40, 60);
+    g.addColorStop(0, '#4d525c'); g.addColorStop(1, '#31343b');
+    ctx.fillStyle = g; ctx.fill();
+    ctx.save(); bridgePath(ctx, pts); ctx.clip();
+    stripes(ctx, 260, 260, 36, .5);
+    ctx.restore();
+    bridgePath(ctx, pts);
+    ctx.strokeStyle = 'rgba(240,217,162,.5)'; ctx.lineWidth = 2.4; ctx.stroke();
+    /* regulator index over the staff */
+    ctx.strokeStyle = '#b8bfc9'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(34, -22); ctx.stroke();
+    ctx.font = '11px Georgia, serif'; ctx.fillStyle = 'rgba(232,226,212,.55)';
+    ctx.fillText('A', 40, -30); ctx.fillText('R', 46, -8);
+    jewel(ctx, 0, 0, 6);
+    screw(ctx, -150, 100, 12, rnd() * TAU);
+    return { c, r: R + pad, px };
+  }
+
+  /* barrel assembly: drum sprite (rotates), moon disc (rotates), cover (static) */
+  function bakeBarrel(px) {
+    const r = L.barrel.r, pad = 8;
+    const S = Math.ceil((r + pad) * 2 * px);
+    const c = cvs(S, S), ctx = c.getContext('2d');
+    ctx.translate(S / 2, S / 2); ctx.scale(px, px);
+    /* toothed rim */
+    const teeth = 96, toothH = 7;
+    ctx.beginPath();
+    for (let i = 0; i < teeth; i++) {
+      const a = (i / teeth) * TAU, w = TAU / teeth;
+      ctx.lineTo(Math.cos(a) * (r - toothH), Math.sin(a) * (r - toothH));
+      ctx.lineTo(Math.cos(a + w * .3) * r, Math.sin(a + w * .3) * r);
+      ctx.lineTo(Math.cos(a + w * .7) * r, Math.sin(a + w * .7) * r);
+    }
+    ctx.closePath();
+    ctx.fillStyle = metal(ctx, r, '#c8a05a', '#f0d9a2', '#6d5426');
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = 1; ctx.stroke();
+    return { c, r: r + pad, px };
+  }
+
+  function bakeMoonDisc(px) {
+    const r = 86, pad = 4;
+    const S = Math.ceil((r + pad) * 2 * px);
+    const c = cvs(S, S), ctx = c.getContext('2d');
+    ctx.translate(S / 2, S / 2); ctx.scale(px, px);
+    /* midnight-blue disc, gold stars, two moons opposite */
+    const g = ctx.createRadialGradient(0, 0, 6, 0, 0, r);
+    g.addColorStop(0, '#17224e'); g.addColorStop(1, '#0a1030');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fill();
+    const rr = E.mulberry(7);
+    ctx.fillStyle = '#e9d9a8';
+    for (let i = 0; i < 26; i++) {
+      const a = rr() * TAU, d = 18 + rr() * (r - 26);
+      ctx.beginPath(); ctx.arc(Math.cos(a) * d, Math.sin(a) * d, .9 + rr() * 1.3, 0, TAU); ctx.fill();
+    }
+    for (const s of [1, -1]) {
+      ctx.save(); ctx.translate(0, s * r * .56);
+      const mg = ctx.createRadialGradient(-6, -7, 2, 0, 0, 24);
+      mg.addColorStop(0, '#fdf6dd'); mg.addColorStop(1, '#cfb264');
+      ctx.fillStyle = mg;
+      ctx.beginPath(); ctx.arc(0, 0, 23, 0, TAU); ctx.fill();
+      /* a quiet face: two craters */
+      ctx.fillStyle = 'rgba(140,110,50,.4)';
+      ctx.beginPath(); ctx.arc(-7, -3, 3.6, 0, TAU); ctx.fill();
+      ctx.beginPath(); ctx.arc(6, 6, 4.6, 0, TAU); ctx.fill();
+      ctx.restore();
+    }
+    return { c, r: r + pad, px };
+  }
+
+  function bakeBarrelCover(px) {
+    const r = L.barrel.r, pad = 8;
+    const S = Math.ceil((r + pad) * 2 * px);
+    const c = cvs(S, S), ctx = c.getContext('2d');
+    ctx.translate(S / 2, S / 2); ctx.scale(px, px);
+    const face = r - 9;
+    ctx.beginPath(); ctx.arc(0, 0, face, 0, TAU);
+    ctx.fillStyle = metal(ctx, face, '#b6924e', '#e3c887', '#5d4720');
+    ctx.fill();
+    /* sunray brushing */
+    ctx.save();
+    ctx.beginPath(); ctx.arc(0, 0, face, 0, TAU); ctx.clip();
+    ctx.globalAlpha = .16;
+    for (let i = 0; i < 72; i++) {
+      const a = (i / 72) * TAU;
+      ctx.strokeStyle = i % 2 ? 'rgba(255,255,255,.5)' : 'rgba(0,0,0,.45)';
+      ctx.lineWidth = 2.4;
+      ctx.beginPath(); ctx.moveTo(Math.cos(a) * 26, Math.sin(a) * 26);
+      ctx.lineTo(Math.cos(a) * face, Math.sin(a) * face); ctx.stroke();
+    }
+    ctx.restore();
+    /* moon aperture: a fat crescent-topped window, NNE of center */
+    ctx.save();
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.beginPath(); ctx.arc(0, -r * .56, 27, 0, TAU); ctx.fill();
+    ctx.restore();
+    ctx.strokeStyle = 'rgba(240,217,162,.7)'; ctx.lineWidth = 2.4;
+    ctx.beginPath(); ctx.arc(0, -r * .56, 27, 0, TAU); ctx.stroke();
+    /* ratchet wheel at center (spins while winding) is drawn live; leave a seat */
+    ctx.fillStyle = 'rgba(0,0,0,.35)';
+    ctx.beginPath(); ctx.arc(0, 0, 46, 0, TAU); ctx.fill();
+    return { c, r: r + pad, px };
+  }
+
+  function bakeRatchet(px) {
+    const r = 42, pad = 4;
+    const S = Math.ceil((r + pad) * 2 * px);
+    const c = cvs(S, S), ctx = c.getContext('2d');
+    ctx.translate(S / 2, S / 2); ctx.scale(px, px);
+    const teeth = 24;
+    ctx.beginPath();
+    for (let i = 0; i < teeth; i++) {
+      const a = (i / teeth) * TAU;
+      ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+      ctx.lineTo(Math.cos(a + (TAU / teeth) * .55) * (r - 7), Math.sin(a + (TAU / teeth) * .55) * (r - 7));
+    }
+    ctx.closePath();
+    ctx.fillStyle = metal(ctx, r, '#9aa3ad', '#dfe6ee', '#4b5157');
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,.4)'; ctx.lineWidth = 1; ctx.stroke();
+    screw(ctx, 0, 0, 12, .7);
+    return { c, r: r + pad, px };
+  }
+
+  /* dial furniture: floating engraved rings (hour, seconds, chrono) — static */
+  function ring(ctx, cx, cy, r, opts) {
+    const { numerals, ticks, label } = opts;
+    ctx.save(); ctx.translate(cx, cy);
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,.55)'; ctx.shadowBlur = 14; ctx.shadowOffsetY = 6;
+    ctx.strokeStyle = '#d8d2c2'; ctx.lineWidth = Math.max(7, r * .1);
+    ctx.globalAlpha = .92;
+    ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.stroke();
+    ctx.restore();
+    ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(0, 0, r + Math.max(3.5, r * .05), 0, TAU); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, 0, r - Math.max(3.5, r * .05), 0, TAU); ctx.stroke();
+    ctx.fillStyle = '#1a1c20';
+    for (let i = 0; i < ticks; i++) {
+      const a = (i / ticks) * TAU - Math.PI / 2;
+      const w = i % (ticks / Math.min(12, ticks)) === 0 ? 2.4 : 1.1;
+      ctx.save(); ctx.translate(Math.cos(a) * r, Math.sin(a) * r); ctx.rotate(a);
+      ctx.fillRect(-Math.max(3, r * .045), -w / 2, Math.max(6, r * .09), w);
+      ctx.restore();
+    }
+    if (numerals) {
+      ctx.font = `${Math.max(11, r * .21)}px Georgia, serif`;
+      ctx.fillStyle = '#e8e2d4'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const list = numerals;
+      for (let i = 0; i < list.length; i++) {
+        const a = (i / list.length) * TAU - Math.PI / 2;
+        ctx.save();
+        ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 5; ctx.shadowOffsetY = 2;
+        ctx.fillText(list[i], Math.cos(a) * r * .74, Math.sin(a) * r * .74);
+        ctx.restore();
+      }
+    }
+    if (label) {
+      ctx.font = `${Math.max(9, r * .13)}px Georgia, serif`;
+      ctx.fillStyle = 'rgba(232,226,212,.55)';
+      ctx.textAlign = 'center';
+      ctx.fillText(label, 0, r * .42);
+    }
+    ctx.restore();
+  }
+
+  function bakeFurniture(px) {
+    const R = L.plateR, pad = 40;
+    const S = Math.ceil((R + pad) * 2 * px);
+    const c = cvs(S, S), ctx = c.getContext('2d');
+    ctx.translate(S / 2, S / 2); ctx.scale(px, px);
+    ring(ctx, L.hourP[0], L.hourP[1], 96, { numerals: ['XII', 'II', 'IIII', 'VI', 'VIII', 'X'], ticks: 12 });
+    ring(ctx, L.fourthP[0], L.fourthP[1], 74, { numerals: ['60', '20', '40'], ticks: 12 });
+    ring(ctx, L.chronoP[0], L.chronoP[1], 66, { numerals: ['30', '10', '20'], ticks: 6, label: 'MIN.' });
+    return { c, r: R + pad, px };
+  }
+
+  /* the two repeater gongs circling the movement + their hammers (static; hammers live) */
+  function bakeGongs(px) {
+    const R = L.plateR, pad = 40;
+    const S = Math.ceil((R + pad) * 2 * px);
+    const c = cvs(S, S), ctx = c.getContext('2d');
+    ctx.translate(S / 2, S / 2); ctx.scale(px, px);
+    for (const [r, tint] of [[452, '#cfd6df'], [438, '#a7852f']]) {
+      ctx.strokeStyle = tint; ctx.globalAlpha = .9;
+      ctx.lineWidth = 4.2;
+      ctx.beginPath(); ctx.arc(0, 0, r, Math.PI * .62, Math.PI * .62 + TAU * .9, false);
+      ctx.stroke();
+      ctx.globalAlpha = .3; ctx.lineWidth = 1.2; ctx.strokeStyle = '#fff';
+      ctx.beginPath(); ctx.arc(0, 0, r - 1.6, Math.PI * .62, Math.PI * .62 + TAU * .9, false);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+    /* gong block anchor: west rim, where the hammers reach */
+    ctx.fillStyle = '#3c4048';
+    ctx.beginPath(); ctx.arc(-432, 46, 15, 0, TAU); ctx.fill();
+    ctx.strokeStyle = 'rgba(240,217,162,.4)'; ctx.lineWidth = 2; ctx.stroke();
+    return { c, r: R + pad, px };
+  }
+
+  /* ---------- bake set + rebake on zoom tier change ---------- */
+  const sprites = {};
+  let bakedTier = 0;
+  function bake(tier) {
+    const px = Math.min(E.view.px * tier, 4);
+    sprites.plate = bakePlate(Math.min(px, 2.5) * (E.baseScale || .5));
+    sprites.bridges = bakeBridges(Math.min(px, 2.5) * (E.baseScale || .5));
+    sprites.furniture = bakeFurniture(Math.min(px, 2.5) * (E.baseScale || .5));
+    sprites.gongs = bakeGongs(Math.min(px, 2.5) * (E.baseScale || .5));
+    const s = (E.baseScale || .5) * px;
+    sprites.centerW = bakeWheel({ r: L.center.r, teeth: 80, spokes: 5, style: 'brass', pinion: L.center.pinion, px: s });
+    sprites.thirdW = bakeWheel({ r: L.third.r, teeth: 75, spokes: 4, style: 'brass', pinion: L.third.pinion, px: s });
+    sprites.fourthW = bakeWheel({ r: L.fourth.r, teeth: 80, spokes: 4, style: 'brass', pinion: L.fourth.pinion, px: s });
+    sprites.hourW = bakeWheel({ r: 78, teeth: 60, spokes: 4, style: 'brass', pinion: 0, px: s });
+    sprites.escapeW = bakeEscape(s);
+    sprites.balance = bakeBalance(s);
+    sprites.fork = bakeFork(s);
+    sprites.barrel = bakeBarrel(s);
+    sprites.moon = bakeMoonDisc(s);
+    sprites.cover = bakeBarrelCover(s);
+    sprites.ratchet = bakeRatchet(s);
+    sprites.cock = bakeCock(s);
+    bakedTier = tier;
+  }
+
+  function rebake() { bake(bakedTier || 1); }
+
+  /* pick a sharper tier when the camera settles zoomed-in */
+  function tierFor(z) { return z > 2.2 ? 2.5 : 1; }
+  function maybeRetier() {
+    const t = tierFor(E.cam.z);
+    if (t !== bakedTier) bake(t);
+  }
+
+  return { L, sprites, bake, rebake, maybeRetier };
+})();
+
+
+/* THE ESCAPEMENT — render. One loop: advance the movement, lerp the camera,
+   composite baked sprites, draw the living parts (balance, hairspring, fork,
+   hands) as vectors so they stay crisp at any zoom.
+
+   The plan view lifts the movement into its layers: every draw group takes a
+   lift index; E.plan.p fans them apart. */
+E.fx = {
+  hammerA: 0, hammerB: 0,      /* repeater hammers, 0..1 strike pose (sound sets, render decays) */
+  ratchetSpin: 0,              /* radians of ratchet wheel from winding */
+  crownSpin: 0,
+};
+E.plan = { p: 0, on: false };  /* exploded factor */
+
+E.render = (() => {
+  const F = () => E.forge.sprites;
+  const L = () => E.forge.L;
+  const TAU = E.TAU;
+
+  const LIFT_GAP = 148;        /* world units between exploded layers */
+  const LAYERS = ['MAINPLATE', 'BARREL & MOONWORK', 'GOING TRAIN', 'GONGWORK', 'BRIDGEWORK', 'ESCAPEMENT', 'DIALWORK', 'HANDS'];
+
+  function drawSprite(ctx, spr, wx, wy, rot, lift) {
+    const s = E.baseScale * E.cam.z;
+    const [sx, sy] = E.w2s(wx, wy - lift);
+    const d = spr.r * 2 * s;
+    ctx.save();
+    ctx.translate(sx, sy);
+    if (rot) ctx.rotate(rot);
+    ctx.drawImage(spr.c, -d / 2, -d / 2, d, d);
+    ctx.restore();
+  }
+
+  /* live hairspring: a breathing Archimedean spiral in blued steel */
+  function drawHairspring(ctx, wx, wy, balanceA, lift) {
+    const s = E.baseScale * E.cam.z;
+    const [sx, sy] = E.w2s(wx, wy - lift);
+    ctx.save();
+    ctx.translate(sx, sy);
+    ctx.rotate(balanceA * 0.22);
+    const breathe = 1 + Math.sin(balanceA) * 0.05;
+    ctx.strokeStyle = 'rgba(127,160,239,.75)';
+    ctx.lineWidth = Math.max(.7, 1.15 * s);
+    ctx.beginPath();
+    const turns = 6.5, r0 = 9, r1 = 46 * breathe;
+    for (let t = 0; t <= 1; t += 1 / 140) {
+      const a = t * turns * TAU;
+      const r = (r0 + (r1 - r0) * t) * s;
+      const x = Math.cos(a) * r, y = Math.sin(a) * r;
+      t === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function hand(ctx, wx, wy, angle, len, tail, w, color, lift, lume) {
+    const s = E.baseScale * E.cam.z;
+    const [sx, sy] = E.w2s(wx, wy - lift);
+    ctx.save();
+    ctx.translate(sx, sy);
+    ctx.rotate(angle);
+    ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = 6 * s; ctx.shadowOffsetY = 3 * s;
+    /* lozenge silhouette */
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(-w * .55 * s, 0);
+    ctx.lineTo(-w * .16 * s, -len * .72 * s);
+    ctx.lineTo(0, -len * s);
+    ctx.lineTo(w * .16 * s, -len * .72 * s);
+    ctx.lineTo(w * .55 * s, 0);
+    ctx.lineTo(w * .3 * s, tail * s);
+    ctx.lineTo(-w * .3 * s, tail * s);
+    ctx.closePath();
+    ctx.fill();
+    if (lume > 0.02) {
+      ctx.shadowBlur = 0;
+      ctx.globalAlpha = lume;
+      ctx.strokeStyle = 'rgba(185,230,200,.9)';
+      ctx.lineWidth = Math.max(1, 1.4 * s);
+      ctx.beginPath(); ctx.moveTo(0, -len * .3 * s); ctx.lineTo(0, -len * .92 * s); ctx.stroke();
+    }
+    /* boss */
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#22252b';
+    ctx.beginPath(); ctx.arc(0, 0, Math.max(2.5, w * .5 * s), 0, TAU); ctx.fill();
+    ctx.restore();
+  }
+
+  function drawHammers(ctx, lift) {
+    const s = E.baseScale * E.cam.z;
+    const P = L().hammerP;
+    for (const [which, dy, pose] of [['A', -26, E.fx.hammerA], ['B', 26, E.fx.hammerB]]) {
+      const [sx, sy] = E.w2s(P[0], P[1] + dy - lift);
+      ctx.save();
+      ctx.translate(sx, sy);
+      ctx.rotate(-0.5 + pose * 0.55); /* cocked back, snaps toward the gong */
+      ctx.strokeStyle = '#9aa3ad'; ctx.lineWidth = 7 * s; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-34 * s, -20 * s); ctx.stroke();
+      ctx.fillStyle = which === 'A' ? '#cfd6df' : '#c8a05a';
+      ctx.beginPath(); ctx.arc(-40 * s, -24 * s, 10 * s, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#31343b';
+      ctx.beginPath(); ctx.arc(0, 0, 6 * s, 0, TAU); ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  function nightFactor() {
+    const h = new Date().getHours() + new Date().getMinutes() / 60;
+    if (h >= 8 && h <= 18) return 0;
+    if (h > 18 && h < 22) return (h - 18) / 4;
+    if (h >= 22 || h < 5) return 1;
+    return 1 - (h - 5) / 3; /* 5..8 dawn */
+  }
+
+  let srMinute = -1;
+  let quiet = 0;
+
+  function loop(dt) {
+    const cv = E.cv, ctx = E.cx;
+    if (!E.view.w) { E.resize(); if (!E.view.w) return; } /* boot raced layout: keep trying */
+
+    E.time.step(dt);
+    const T = E.time.T;
+
+    /* camera easing */
+    const c = E.cam;
+    c.x = E.lerp(c.x, c.tx, .12); c.y = E.lerp(c.y, c.ty, .12);
+    c.z = E.lerp(c.z, c.tz, .14);
+    const camMoving = Math.abs(c.z - c.tz) > .002 || Math.abs(c.x - c.tx) > .4 || Math.abs(c.y - c.ty) > .4;
+    if (!camMoving) E.forge.maybeRetier();
+
+    /* plan fan */
+    E.plan.p = E.lerp(E.plan.p, E.plan.on ? 1 : 0, .1);
+    const planMoving = Math.abs(E.plan.p - (E.plan.on ? 1 : 0)) > .004;
+
+    /* FX decays */
+    E.fx.hammerA = Math.max(0, E.fx.hammerA - dt / 90);
+    E.fx.hammerB = Math.max(0, E.fx.hammerB - dt / 90);
+
+    /* park the frame loop when nothing can move (stopped + settled + idle) */
+    if (T.phase === 'stop' && !camMoving && !planMoving && E.fx.hammerA === 0 && E.fx.hammerB === 0 && !E.fx.winding) {
+      if (quiet++ > 4) { E.render.parked = true; return false; } /* leave the ticker; interact rekicks */
+    } else quiet = 0;
+
+    const A = E.time.angles();
+    const P = E.plan.p;
+    const lift = (i) => P * LIFT_GAP * i;
+    const nf = nightFactor();
+
+    ctx.clearRect(0, 0, cv.width, cv.height);
+
+    /* ---- 0 mainplate ---- */
+    drawSprite(ctx, F().plate, 0, 0, 0, lift(0));
+
+    /* ---- 1 barrel + moon ---- */
+    const BP = L().barrelP;
+    drawSprite(ctx, F().barrel, BP[0], BP[1], A.barrel, lift(1));
+    drawSprite(ctx, F().moon, BP[0], BP[1], A.moon, lift(1));
+    drawSprite(ctx, F().cover, BP[0], BP[1], 0, lift(1));
+    E.fx.ratchetSpin *= .92;
+    E.fx._ratchetA = (E.fx._ratchetA || 0) + E.fx.ratchetSpin * dt / 400 + (T.phase !== 'stop' ? dt / 90000 : 0);
+
+    /* ---- 2 going train ---- */
+    drawSprite(ctx, F().hourW, L().hourP[0], L().hourP[1], A.hour, lift(2));
+    drawSprite(ctx, F().centerW, 0, 0, A.center, lift(2));
+    drawSprite(ctx, F().thirdW, L().thirdP[0], L().thirdP[1], A.third, lift(2));
+    drawSprite(ctx, F().fourthW, L().fourthP[0], L().fourthP[1], A.seconds, lift(2));
+    drawSprite(ctx, F().escapeW, L().escapeP[0], L().escapeP[1], A.escape, lift(2));
+
+    /* ---- 3 gongs + hammers ---- */
+    drawSprite(ctx, F().gongs, 0, 0, 0, lift(3));
+    drawHammers(ctx, lift(3));
+
+    /* ---- 4 bridges (the ratchet rides the barrel strap) ---- */
+    drawSprite(ctx, F().bridges, 0, 0, 0, lift(4));
+    drawSprite(ctx, F().ratchet, BP[0], BP[1], E.fx._ratchetA, lift(4));
+
+    /* ---- 5 escapement: fork + balance + hairspring + cock ---- */
+    const FP = L().forkP, EP = L().escapeP, BAL = L().balanceP;
+    const forkBase = Math.atan2(EP[1] - FP[1], EP[0] - FP[0]) - Math.PI / 2;
+    drawSprite(ctx, F().fork, FP[0], FP[1], forkBase + A.fork, lift(5));
+    drawSprite(ctx, F().balance, BAL[0], BAL[1], A.balance, lift(5));
+    drawHairspring(ctx, BAL[0], BAL[1], A.balance, lift(5));
+    drawSprite(ctx, F().cock, BAL[0], BAL[1], 0, lift(5));
+
+    /* ---- 6 dial furniture + reserve pointer ---- */
+    drawSprite(ctx, F().furniture, 0, 0, 0, lift(6));
+    {
+      const { r, a0, a1 } = L().reserveArc;
+      const a = a0 + (a1 - a0) * A.reserve;
+      const s = E.baseScale * E.cam.z;
+      const [sx, sy] = E.w2s(Math.cos(a) * (r - 20), Math.sin(a) * (r - 20) - lift(6));
+      ctx.save();
+      ctx.translate(sx, sy); ctx.rotate(a);
+      ctx.fillStyle = '#7fa0ef';
+      ctx.beginPath();
+      ctx.moveTo(14 * s, 0); ctx.lineTo(-8 * s, -6 * s); ctx.lineTo(-8 * s, 6 * s);
+      ctx.closePath(); ctx.fill();
+      ctx.restore();
+    }
+
+    /* ---- 7 hands ---- */
+    const lume = nf * 0.85;
+    hand(ctx, L().hourP[0], L().hourP[1], A.hour, 66, 16, 10, '#3e5fb8', lift(7), lume);
+    hand(ctx, L().fourthP[0], L().fourthP[1], A.seconds, 64, 20, 6, '#3e5fb8', lift(7), 0);
+    hand(ctx, L().chronoP[0], L().chronoP[1], A.chronoMin, 46, 12, 6, '#9aa3ad', lift(7), 0);
+    /* chrono center seconds — only when it has ever run */
+    if (T.chrono.ms > 0 || T.chrono.on) {
+      hand(ctx, 0, 0, A.chronoSec, 386, 60, 7, '#c9ced6', lift(7), 0);
+    }
+    hand(ctx, 0, 0, A.center, 384, 66, 13, '#3e5fb8', lift(7), lume);
+
+    /* ---- plan labels ---- */
+    if (P > 0.03) {
+      ctx.save();
+      ctx.globalAlpha = P;
+      ctx.font = `${Math.max(10, 13 * E.baseScale * E.cam.z * 2)}px Georgia, serif`;
+      ctx.fillStyle = 'rgba(232,226,212,.72)';
+      ctx.strokeStyle = 'rgba(232,226,212,.28)';
+      ctx.textAlign = 'left';
+      for (let i = 0; i < LAYERS.length; i++) {
+        const [sx, sy] = E.w2s(L().plateR * 0.78, -lift(i));
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(sx - 30, sy); ctx.lineTo(sx + 14, sy); ctx.stroke();
+        ctx.fillText(LAYERS[i], sx + 20, sy + 4);
+      }
+      ctx.restore();
+    }
+
+    /* ---- night: ambient + a breath of lume haze ---- */
+    if (nf > 0.02) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'multiply';
+      ctx.fillStyle = `rgba(70,86,130,${0.22 * nf})`;
+      ctx.fillRect(0, 0, cv.width, cv.height);
+      ctx.restore();
+    }
+
+    /* vignette */
+    const vg = ctx.createRadialGradient(cv.width / 2, cv.height / 2, Math.min(cv.width, cv.height) * .32, cv.width / 2, cv.height / 2, Math.min(cv.width, cv.height) * .52);
+    vg.addColorStop(0, 'rgba(0,0,0,0)');
+    vg.addColorStop(1, 'rgba(0,0,0,.5)');
+    ctx.fillStyle = vg;
+    ctx.fillRect(0, 0, cv.width, cv.height);
+
+    /* SR clock: announce the display time once a minute */
+    const min = Math.floor(E.time.dispMs() / 60000);
+    if (min !== srMinute) {
+      srMinute = min;
+      if (T.phase === 'run') E.say(E.time.timeLabel());
+    }
+  }
+
+  function wake() {
+    if (E.render.parked) { E.render.parked = false; E.ticker.add(loop); }
+    E.ticker.kick();
+  }
+
+  function boot() {
+    E.resize();
+    E.forge.bake(1);
+    E.ticker.add(loop);
+  }
+
+  return { boot, wake, nightFactor, frame: loop };
+})();
+
+
+/* THE ESCAPEMENT — sound. Zero audio files; everything is struck metal math.
+
+   THE LAW: no sound before an activation-bearing gesture. The chip never
+   claims ON until ctx.state === 'running'. An explicit opt-out is remembered.
+   Hidden tabs are silent. The tick is scheduled on the AUDIO clock against
+   the movement's 200ms grid, so what you hear is what the balance does. */
+E.sound = (() => {
+  let ctx = null, master = null, comp = null;
+  let enabled = E.store.get('sound', true);   /* intent; hardware may still be off */
+  let repeaterBusy = false;
+  let lastHourStruck = -1;
+  const chip = document.getElementById('sound-toggle');
+
+  function build() {
+    if (ctx) return;
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+    comp = ctx.createDynamicsCompressor();
+    comp.threshold.value = -18; comp.knee.value = 24; comp.ratio.value = 4;
+    master = ctx.createGain();
+    master.gain.value = 0.9;
+    master.connect(comp).connect(ctx.destination);
+    document.addEventListener('visibilitychange', () => {
+      if (!ctx) return;
+      if (document.hidden) ctx.suspend();
+      else if (enabled) ctx.resume().then(reflect);
+    });
+    ctx.onstatechange = reflect;
+  }
+
+  function reflect() {
+    const on = !!(ctx && ctx.state === 'running' && enabled);
+    if (chip) chip.setAttribute('aria-pressed', String(on));
+  }
+
+  /* first qualifying gesture arms the context (if the visitor hasn't opted out) */
+  function arm() {
+    if (!enabled) return;
+    build();
+    if (ctx.state !== 'running') ctx.resume().then(reflect);
+    else reflect();
+  }
+
+  function toggle() {
+    enabled = !enabled;
+    E.store.set('sound', enabled);
+    if (enabled) { build(); ctx.resume().then(reflect); E.say('Sound on.'); }
+    else { if (ctx) ctx.suspend(); reflect(); E.say('Sound off.'); }
+  }
+  if (chip) chip.addEventListener('click', toggle);
+
+  const now = () => ctx.currentTime;
+  const audible = () => ctx && ctx.state === 'running' && enabled;
+
+  /* ---- voices ---- */
+
+  /* the tick: a tiny damped metal contact — two different colors for tick/tock */
+  function tickVoice(when, isTock, vel) {
+    const o = ctx.createOscillator();
+    const bp = ctx.createBiquadFilter();
+    const g = ctx.createGain();
+    const pan = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+    o.type = 'square';
+    o.frequency.value = isTock ? 3400 : 4300;
+    bp.type = 'bandpass';
+    bp.frequency.value = isTock ? 3100 : 4100;
+    bp.Q.value = 9;
+    g.gain.setValueAtTime(0.0001, when);
+    g.gain.exponentialRampToValueAtTime(0.06 * vel, when + 0.002);
+    g.gain.exponentialRampToValueAtTime(0.0001, when + 0.028);
+    o.connect(bp).connect(g);
+    if (pan) { pan.pan.value = -0.25; g.connect(pan).connect(master); }
+    else g.connect(master);
+    o.start(when); o.stop(when + 0.05);
+  }
+
+  /* a struck gong: inharmonic partial stack with a bright strike transient */
+  function gong(f0, when, vel = 1) {
+    const partials = [[1, 1], [2.71, .42], [4.95, .2], [7.4, .09], [1.51, .18]];
+    for (const [ratio, amp] of partials) {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = 'sine';
+      o.frequency.value = f0 * ratio * (1 + (Math.random() - .5) * 0.0015);
+      const peak = 0.22 * amp * vel;
+      const decay = 3.2 / Math.sqrt(ratio);
+      g.gain.setValueAtTime(0.0001, when);
+      g.gain.exponentialRampToValueAtTime(peak, when + 0.004);
+      g.gain.exponentialRampToValueAtTime(0.0001, when + decay);
+      o.connect(g).connect(master);
+      o.start(when); o.stop(when + decay + 0.1);
+    }
+    /* strike */
+    const len = ctx.sampleRate * 0.02;
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+    const n = ctx.createBufferSource(); n.buffer = buf;
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass'; bp.frequency.value = f0 * 4; bp.Q.value = 2;
+    const g = ctx.createGain(); g.gain.value = 0.12 * vel;
+    n.connect(bp).connect(g).connect(master);
+    n.start(when);
+  }
+
+  /* winding ratchet: one dry click per crown detent */
+  function ratchet() {
+    if (!audible()) return;
+    const when = now();
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = 'triangle';
+    o.frequency.value = 1500 + Math.random() * 300;
+    g.gain.setValueAtTime(0.0001, when);
+    g.gain.exponentialRampToValueAtTime(0.11, when + 0.002);
+    g.gain.exponentialRampToValueAtTime(0.0001, when + 0.045);
+    o.connect(g).connect(master);
+    o.start(when); o.stop(when + 0.06);
+    const len = ctx.sampleRate * 0.012;
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+    const n = ctx.createBufferSource(); n.buffer = buf;
+    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 2400;
+    const ng = ctx.createGain(); ng.gain.value = 0.08;
+    n.connect(hp).connect(ng).connect(master);
+    n.start(when);
+  }
+
+  /* pusher: a soft mechanical clunk */
+  function pusher() {
+    if (!audible()) return;
+    const when = now();
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = 'sine'; o.frequency.setValueAtTime(300, when);
+    o.frequency.exponentialRampToValueAtTime(120, when + 0.05);
+    g.gain.setValueAtTime(0.0001, when);
+    g.gain.exponentialRampToValueAtTime(0.16, when + 0.004);
+    g.gain.exponentialRampToValueAtTime(0.0001, when + 0.09);
+    o.connect(g).connect(master);
+    o.start(when); o.stop(when + 0.1);
+  }
+
+  /* the catch-up whir: hands spinning home */
+  function whir(durMs) {
+    if (!audible()) return;
+    const when = now(), dur = durMs / 1000;
+    const len = ctx.sampleRate * dur;
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    const n = ctx.createBufferSource(); n.buffer = buf;
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass'; bp.Q.value = 6;
+    bp.frequency.setValueAtTime(900, when);
+    bp.frequency.exponentialRampToValueAtTime(2600, when + dur * .6);
+    bp.frequency.exponentialRampToValueAtTime(700, when + dur);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, when);
+    g.gain.exponentialRampToValueAtTime(0.07, when + 0.08);
+    g.gain.setValueAtTime(0.07, when + dur * .8);
+    g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
+    n.connect(bp).connect(g).connect(master);
+    n.start(when); n.stop(when + dur + .05);
+  }
+
+  /* ---- the repeater: reads the display clock, strikes it out ---- */
+  function repeater() {
+    if (repeaterBusy) return;
+    arm();
+    if (!audible()) { E.say('Sound is off — the repeater is silent. ' + E.time.timeLabel()); return; }
+    repeaterBusy = true;
+    const { hours, quarters, minutes } = E.time.repeaterCount();
+    const LOW = 659, HIGH = 831;
+    let t = now() + 0.25;
+    const hammer = (which, when) => {
+      setTimeout(() => { E.fx['hammer' + which] = 1; E.render.wake(); }, Math.max(0, (when - now()) * 1000 - 40));
+    };
+    for (let i = 0; i < hours; i++) { gong(LOW, t, 1); hammer('B', t); t += 0.75; }
+    if (quarters) t += 0.25;
+    for (let i = 0; i < quarters; i++) {
+      gong(HIGH, t, .95); hammer('A', t);
+      gong(LOW, t + 0.28, .95); hammer('B', t + 0.28);
+      t += 0.82;
+    }
+    if (minutes) t += 0.2;
+    for (let i = 0; i < minutes; i++) { gong(HIGH, t, .8); hammer('A', t); t += 0.42; }
+    const total = (t - now()) * 1000 + 2500;
+    setTimeout(() => { repeaterBusy = false; }, total - 2200);
+    E.say(`Repeater: ${hours} ${hours === 1 ? 'hour' : 'hours'}, ${quarters} ${quarters === 1 ? 'quarter' : 'quarters'}, ${minutes} ${minutes === 1 ? 'minute' : 'minutes'} — ${E.time.timeLabel()}.`);
+  }
+
+  /* ---- the tick scheduler: audio-clock lookahead against the 200ms grid ---- */
+  let schedTimer = null, lastScheduledTick = 0;
+  function scheduler() {
+    if (!audible()) return;
+    const T = E.time.T;
+    if (T.phase !== 'run' && T.phase !== 'die') return;
+    const BEAT = E.time.BEAT;
+    const wallNow = Date.now();
+    const dispNow = E.time.dispMs();
+    const horizon = 340; /* ms of lookahead */
+    let tick = Math.max(lastScheduledTick + 1, Math.ceil(dispNow / BEAT));
+    while (tick * BEAT < dispNow + horizon) {
+      const wallAt = tick * BEAT + (wallNow - dispNow); /* display grid -> wall clock */
+      const at = now() + Math.max(0.01, (wallAt - Date.now()) / 1000);
+      const vel = T.phase === 'die' ? Math.max(.15, T.amp) : 1;
+      tickVoice(at, tick % 2 === 0, vel);
+      lastScheduledTick = tick;
+      tick++;
+    }
+    /* the passing hour: one low gong on the display clock's top of hour */
+    const d = new Date(dispNow);
+    if (d.getMinutes() === 0 && d.getSeconds() < 2 && d.getHours() !== lastHourStruck && !repeaterBusy) {
+      lastHourStruck = d.getHours();
+      gong(659, now() + 0.05, .8);
+    }
+  }
+  setInterval(() => { if (ctx) scheduler(); }, 150);
+
+  return { arm, toggle, ratchet, pusher, whir, repeater, reflect, get enabled() { return enabled; } };
+})();
+
+
+/* THE ESCAPEMENT — interaction. Every verb works three ways: pointer on the
+   metal, a real button on the case, and a bare key. W winds, R chimes,
+   C runs the chronograph, X resets it, P opens the plan. */
+(() => {
+  const cv = E.cv;
+  const crown = document.getElementById('crown');
+  const slide = document.getElementById('slide');
+  const pushA = document.getElementById('push-a');
+  const pushB = document.getElementById('push-b');
+
+  const anyGesture = () => { E.sound.arm(); E.render.wake(); };
+  addEventListener('pointerdown', anyGesture, { capture: true });
+  addEventListener('keydown', anyGesture, { capture: true });
+
+  /* ---------- camera: pan / wheel-zoom / pinch / double-tap ---------- */
+  const ptrs = new Map();
+  let pinch0 = 0, pinchZ0 = 1, moved = 0;
+
+  const clampCam = () => {
+    const c = E.cam;
+    c.tz = E.clamp(c.tz, 1, 5);
+    const slack = E.forge.L.plateR * (1 - 1 / c.tz) + 30;
+    c.tx = E.clamp(c.tx, -slack, slack);
+    c.ty = E.clamp(c.ty, -slack, slack);
+  };
+
+  cv.addEventListener('pointerdown', (e) => {
+    if (E.plan.on) return;
+    cv.setPointerCapture(e.pointerId);
+    ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    moved = 0;
+    if (ptrs.size === 2) {
+      const [a, b] = [...ptrs.values()];
+      pinch0 = Math.hypot(a.x - b.x, a.y - b.y);
+      pinchZ0 = E.cam.tz;
+    }
+    cv.classList.add('dragging');
+  });
+  cv.addEventListener('pointermove', (e) => {
+    const p = ptrs.get(e.pointerId);
+    if (!p) return;
+    const dx = e.clientX - p.x, dy = e.clientY - p.y;
+    p.x = e.clientX; p.y = e.clientY;
+    moved += Math.abs(dx) + Math.abs(dy);
+    const s = E.baseScale * E.cam.z / E.view.px; /* css px per world unit */
+    if (ptrs.size === 1) {
+      E.cam.tx -= dx / s; E.cam.ty -= dy / s;
+      E.cam.x = E.cam.tx; E.cam.y = E.cam.ty; /* pan is direct, no lag */
+      clampCam();
+    } else if (ptrs.size === 2) {
+      const [a, b] = [...ptrs.values()];
+      const d = Math.hypot(a.x - b.x, a.y - b.y);
+      if (pinch0 > 0) { E.cam.tz = E.clamp(pinchZ0 * d / pinch0, 1, 5); clampCam(); }
+    }
+    E.render.wake();
+  });
+  const release = (e) => {
+    ptrs.delete(e.pointerId);
+    if (!ptrs.size) cv.classList.remove('dragging');
+  };
+  cv.addEventListener('pointerup', release);
+  cv.addEventListener('pointercancel', release);
+
+  cv.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    if (E.plan.on) return;
+    const r = cv.getBoundingClientRect();
+    const px = (e.clientX - r.left) * E.view.px, py = (e.clientY - r.top) * E.view.px;
+    const [wx, wy] = E.s2w(px, py);
+    const k = Math.exp(-e.deltaY * 0.0016);
+    const z0 = E.cam.tz;
+    E.cam.tz = E.clamp(z0 * k, 1, 5);
+    /* keep the point under the cursor fixed */
+    const f = 1 - z0 / E.cam.tz;
+    E.cam.tx += (wx - E.cam.tx) * f;
+    E.cam.ty += (wy - E.cam.ty) * f;
+    clampCam();
+    E.render.wake();
+  }, { passive: false });
+
+  let lastTap = 0;
+  cv.addEventListener('pointerup', (e) => {
+    if (moved > 8 || E.plan.on) return;
+    const t = performance.now();
+    if (t - lastTap < 320) {
+      const r = cv.getBoundingClientRect();
+      const [wx, wy] = E.s2w((e.clientX - r.left) * E.view.px, (e.clientY - r.top) * E.view.px);
+      if (E.cam.tz > 1.8) { E.cam.tz = 1; E.cam.tx = 0; E.cam.ty = 0; }
+      else { E.cam.tz = 2.6; E.cam.tx = wx; E.cam.ty = wy; }
+      clampCam();
+      E.render.wake();
+      lastTap = 0;
+    } else lastTap = t;
+  });
+
+  /* ---------- the crown: hold to wind ---------- */
+  let windTimer = null, crownPos = 0;
+  function windOnce() {
+    const took = E.time.wind(1);
+    if (took > 0) {
+      E.sound.ratchet();
+      E.fx.ratchetSpin = 1;
+      crownPos += 7;
+      crown.style.backgroundPositionY = crownPos + 'px';
+      if (E.time.T.phase === 'spin') { E.sound.whir(2400); }
+    }
+    E.render.wake();
+  }
+  const windStart = (e) => {
+    if (e.type === 'pointerdown') e.preventDefault();
+    if (windTimer) return;
+    windOnce();
+    windTimer = setInterval(windOnce, 120);
+  };
+  const windStop = () => { clearInterval(windTimer); windTimer = null; announceReserve(); };
+  crown.addEventListener('pointerdown', windStart);
+  addEventListener('pointerup', windStop);
+  crown.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); windStart(e); } });
+  crown.addEventListener('keyup', windStop);
+  crown.addEventListener('blur', windStop);
+
+  let lastAnnounced = -1;
+  function announceReserve() {
+    const pct = Math.round(E.time.T.reserve * 100);
+    if (pct !== lastAnnounced) { lastAnnounced = pct; E.say(`Power reserve ${pct} percent.`); }
+  }
+
+  /* crown glint when the movement is asking for it */
+  setInterval(() => {
+    const stopped = E.time.T.phase === 'stop' || (E.time.T.phase === 'run' && E.time.T.reserve < 0.12);
+    crown.classList.toggle('glint', stopped && !E.rm.matches);
+  }, 1200);
+
+  /* ---------- the repeater slide ---------- */
+  let slideY0 = null;
+  slide.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    slide.setPointerCapture(e.pointerId);
+    slideY0 = e.clientY;
+    slide.classList.add('armed');
+  });
+  slide.addEventListener('pointermove', (e) => {
+    if (slideY0 === null) return;
+    const dy = E.clamp(e.clientY - slideY0, 0, 30);
+    slide.style.transform = `translateY(${dy}px)`;
+  });
+  const slideRelease = (e) => {
+    if (slideY0 === null) return;
+    const dy = e.clientY - slideY0;
+    slideY0 = null;
+    slide.classList.remove('armed');
+    slide.style.transform = '';
+    if (dy > 10) E.sound.repeater();
+  };
+  slide.addEventListener('pointerup', slideRelease);
+  slide.addEventListener('pointercancel', slideRelease);
+  slide.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); E.sound.repeater(); }
+  });
+
+  /* ---------- chronograph ---------- */
+  function chronoToggle() {
+    const ch = E.time.T.chrono;
+    if (E.time.T.phase === 'stop') { E.say('The movement is stopped — wind the crown first.'); return; }
+    ch.on = !ch.on;
+    E.sound.pusher();
+    E.say(ch.on ? 'Chronograph running.' : `Chronograph stopped at ${(ch.ms / 1000).toFixed(1)} seconds.`);
+    E.render.wake();
+  }
+  function chronoReset() {
+    const ch = E.time.T.chrono;
+    E.sound.pusher();
+    ch.ms = 0;
+    E.say(ch.on ? 'Chronograph flyback — running from zero.' : 'Chronograph reset.');
+    E.render.wake();
+  }
+  pushA.addEventListener('click', chronoToggle);
+  pushB.addEventListener('click', chronoReset);
+
+  /* ---------- bare keys ---------- */
+  addEventListener('keydown', (e) => {
+    if (e.target instanceof HTMLElement && (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT')) return;
+    if (e.repeat && e.key.toLowerCase() !== 'w') return;
+    switch (e.key.toLowerCase()) {
+      case 'w': windOnce(); break;
+      case 'r': E.sound.repeater(); break;
+      case 'c': chronoToggle(); break;
+      case 'x': chronoReset(); break;
+      case 'p': E.planToggle && E.planToggle(); break;
+    }
+  });
+})();
+
+
+/* THE ESCAPEMENT — the plan. One press lifts the movement into its eight
+   layers, still running, each named with a hairline callout. */
+(() => {
+  const btn = document.getElementById('plan-toggle');
+
+  E.planToggle = () => {
+    E.plan.on = !E.plan.on;
+    btn.setAttribute('aria-pressed', String(E.plan.on));
+    if (E.plan.on) {
+      E.cam.tz = 0.44; E.cam.tx = 70; E.cam.ty = -480;
+      E.say('Plan view: the movement lifted into eight layers — mainplate, barrel and moonwork, going train, gongwork, bridgework, escapement, dialwork, hands. Still running.');
+    } else {
+      E.cam.tz = 1; E.cam.tx = 0; E.cam.ty = 0;
+      E.say('Plan closed.');
+    }
+    E.render.wake();
+  };
+  btn.addEventListener('click', E.planToggle);
+})();
+
+
+/* THE ESCAPEMENT — arrival. You come to it mid-oscillation: the camera wakes
+   close on the balance (already beating your time) and pulls back to the
+   whole movement. Reduced motion: no flight, the room is simply there. */
+(() => {
+  try {
+    const BAL = E.forge.L.balanceP;
+
+    if (!E.rm.matches) {
+      document.body.classList.add('arriving');
+      E.cam.x = E.cam.tx = BAL[0];
+      E.cam.y = E.cam.ty = BAL[1];
+      E.cam.z = E.cam.tz = 2.9;
+    }
+
+    E.render.boot();
+
+    if (!E.rm.matches) {
+      let done = false;
+      const land = () => {
+        if (done) return; done = true;
+        E.cam.tx = 0; E.cam.ty = 0; E.cam.tz = 1;
+        document.body.classList.remove('arriving');
+        E.render.wake();
+      };
+      setTimeout(land, 2100);                 /* the pull-back begins on its own */
+      addEventListener('pointerdown', land, { once: true, capture: true });
+      addEventListener('keydown', land, { once: true, capture: true });
+    }
+
+    /* the movement introduces itself once */
+    setTimeout(() => {
+      E.say(`A mechanical watch keeping your time: ${E.time.timeLabel()}. Hold the crown to wind it; pull the slide to hear the time.`);
+    }, 1200);
+  } catch (err) {
+    /* a boot throw must never leave a black room: surface the brochure line */
+    console.error(err);
+    const p = document.createElement('p');
+    p.className = 'bootfail';
+    p.style.cssText = 'position:fixed;inset:auto 0 40px 0;text-align:center;color:#9a958a;font:15px Georgia,serif;letter-spacing:.14em;';
+    p.textContent = 'The movement failed to start. A mechanical watch the size of a room lives here — try a newer browser.';
+    document.body.appendChild(p);
+  }
+})();
+
+</script>
+</body>
+</html>

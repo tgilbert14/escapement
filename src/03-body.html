@@ -1,0 +1,58 @@
+<a class="sr-only" href="#deck">Skip to controls</a>
+
+<header class="masthead">
+  <p class="eyebrow">Desert Data Labs</p>
+  <h1>The Escapement</h1>
+  <p class="beat" id="beat-line">18,000 A/H · KEEPING YOUR TIME</p>
+</header>
+
+<main class="room">
+  <div class="case" id="case">
+    <canvas id="movement" aria-hidden="true"></canvas>
+    <button id="crown" class="ctl ctl-crown" aria-label="Winding crown. Hold to wind the mainspring."></button>
+    <button id="slide" class="ctl ctl-slide" aria-label="Repeater slide. Chimes the current time on gongs."></button>
+    <button id="push-a" class="ctl ctl-push a" aria-label="Chronograph start and stop"></button>
+    <button id="push-b" class="ctl ctl-push b" aria-label="Chronograph reset"></button>
+  </div>
+
+  <nav class="deck" id="deck" aria-label="Views and sound">
+    <button id="plan-toggle" aria-pressed="false">Plan</button>
+    <button id="sound-toggle" aria-pressed="false">Sound</button>
+  </nav>
+
+  <p class="sr-only" role="status" aria-live="polite" id="sr-status"></p>
+
+  <noscript>
+    <div class="brochure">
+      <div>
+        <svg viewBox="0 0 400 400" role="img" aria-label="A mechanical watch movement: balance wheel, gear train, and mainspring barrel under striped bridges.">
+          <circle cx="200" cy="200" r="192" fill="none" stroke="#34373e" stroke-width="8"/>
+          <circle cx="200" cy="200" r="178" fill="#15171b"/>
+          <g fill="none" stroke="#c8a05a" stroke-width="3">
+            <circle cx="152" cy="122" r="64"/>
+            <circle cx="200" cy="200" r="46"/>
+            <circle cx="258" cy="238" r="38"/>
+            <circle cx="226" cy="292" r="30"/>
+          </g>
+          <g fill="none" stroke="#6d5426" stroke-width="1.5">
+            <circle cx="152" cy="122" r="52"/>
+            <circle cx="200" cy="200" r="34"/>
+            <circle cx="258" cy="238" r="27"/>
+          </g>
+          <circle cx="130" cy="286" r="52" fill="none" stroke="#aab2bc" stroke-width="4"/>
+          <circle cx="130" cy="286" r="40" fill="none" stroke="#565c66" stroke-width="2"/>
+          <path d="M130 286 m-26 0 a26 26 0 1 1 52 0" fill="none" stroke="#3e5fb8" stroke-width="2"/>
+          <g stroke="#b0263c" fill="#b0263c">
+            <circle cx="152" cy="122" r="5"/>
+            <circle cx="200" cy="200" r="5"/>
+            <circle cx="258" cy="238" r="4"/>
+            <circle cx="130" cy="286" r="5"/>
+          </g>
+          <path d="M200 200 L200 96" stroke="#3e5fb8" stroke-width="4" stroke-linecap="round"/>
+          <path d="M200 200 L252 232" stroke="#3e5fb8" stroke-width="6" stroke-linecap="round"/>
+        </svg>
+        <p>A mechanical watch the size of a room, keeping your time.<br>Wound by hand. Chimed on demand. JavaScript is its mainspring.</p>
+      </div>
+    </div>
+  </noscript>
+</main>

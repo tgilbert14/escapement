@@ -1,0 +1,24 @@
+/* THE ESCAPEMENT — tokens. One brand source: charcoal room, brass and rhodium
+   metalwork, thermally-blued steel as the single accent, ruby jewels. */
+:root {
+  --ink: #0b0c0e;            /* the room */
+  --ink-2: #131519;          /* raised charcoal */
+  --paper: #e8e2d4;          /* engraved silver-cream */
+  --paper-dim: #9a958a;      /* secondary engraving */
+  --brass: #c8a05a;          /* gilt wheels */
+  --brass-hi: #f0d9a2;       /* brass specular */
+  --brass-lo: #6d5426;       /* brass shadow */
+  --rhodium: #aab2bc;        /* bridge steelwork */
+  --rhodium-hi: #e3e9f0;
+  --rhodium-lo: #565c66;
+  --blued: #3e5fb8;          /* thermally blued screws + hands */
+  --blued-hi: #7fa0ef;
+  --ruby: #b0263c;           /* jewel bearings */
+  --lume: #b9e6c8;           /* night lume */
+  --focus: #7fa0ef;
+
+  --serif: 'Georgia', 'Times New Roman', serif;
+  --mono: 'Consolas', 'SF Mono', monospace;
+
+  --case-w: min(94vmin, 1040px);
+}
