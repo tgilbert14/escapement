@@ -41,11 +41,11 @@ const page = `<!doctype html>
 <meta property="og:description" content="A mechanical watch the size of a room, keeping your time. Wind it. Chime it. Take it apart.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://tgilbert14.github.io/escapement/">
-<meta property="og:image" content="https://tgilbert14.github.io/escapement/og-card.png">
+<meta property="og:image" content="https://tgilbert14.github.io/escapement/og-card.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:image" content="https://tgilbert14.github.io/escapement/og-card.png">
+<meta name="twitter:image" content="https://tgilbert14.github.io/escapement/og-card.jpg">
 <meta name="theme-color" content="#0b0c0e">
 <link rel="canonical" href="https://tgilbert14.github.io/escapement/">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='26' fill='none' stroke='%23c8a05a' stroke-width='4'/%3E%3Ccircle cx='32' cy='32' r='11' fill='none' stroke='%236c86c9' stroke-width='3'/%3E%3Cpath d='M32 32 L32 14' stroke='%236c86c9' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
