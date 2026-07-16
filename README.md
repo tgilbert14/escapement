@@ -4,7 +4,7 @@
 
 An interactive showcase by [Desert Data Labs](https://desertdatalabs.com): a grand-complication
 movement rendered entirely in procedural canvas — no frameworks, no images, no audio files.
-The gear train is real: barrel → center wheel (1 rev/h) → third (×7.5) → fourth (1 rev/min) →
+The gear train is real: barrel → center wheel (1 rev/h) → third (×8) → fourth (×7.5, 1 rev/min) →
 escape wheel (×10, fifteen club teeth) → pallet fork → balance, beating 18,000 A/H against the
 visitor's actual local clock. The moonphase is computed from the real synodic month. The
 chronograph is a chronograph.

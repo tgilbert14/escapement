@@ -72,6 +72,15 @@ body::before {
   position: absolute; width: 1px; height: 1px;
   clip-path: inset(50%); overflow: hidden; white-space: nowrap;
 }
+a.skip:focus-visible {
+  width: auto; height: auto; clip-path: none;
+  position: fixed; top: 14px; left: 50%; transform: translateX(-50%);
+  z-index: 60;
+  background: var(--ink-2); color: var(--paper);
+  font-variant: small-caps; letter-spacing: .14em; text-decoration: none;
+  padding: 9px 16px; border: 1px solid var(--brass-lo);
+  outline: 2px solid var(--focus); outline-offset: 2px;
+}
 
 /* ---- masthead: the only words in the room ---- */
 .masthead {
@@ -151,6 +160,7 @@ body::before {
   position: absolute; z-index: 20;
   border: 0; cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  touch-action: none; /* a hold on the crown is a hold, never a scroll */
 }
 .ctl::after { /* invisible hit-area expansion: gloved thumbs welcome */
   content: '';
@@ -224,6 +234,7 @@ body::before {
 }
 .deck button:hover { color: var(--paper); border-color: #4a4f59; }
 .deck button[aria-pressed="true"] { color: var(--brass); border-color: var(--brass-lo); }
+.deck button[aria-pressed="true"]::before { content: '\25CF\2002'; font-size: 8px; vertical-align: 1px; } /* state survives without color */
 .deck button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
 /* ---- arrival ---- */
@@ -252,6 +263,7 @@ body.arriving .masthead, body.arriving .deck { opacity: 0; }
 
 @media (forced-colors: active) {
   .deck button, .ctl { border: 1px solid ButtonText; }
+  .deck button[aria-pressed="true"] { border: 3px double Highlight; forced-color-adjust: none; color: Highlight; }
 }
 
 /* phones: tuck the masthead, leave air for the crown and slide */
@@ -263,7 +275,7 @@ body.arriving .masthead, body.arriving .deck { opacity: 0; }
 }
 
 </style>
-<a class="sr-only" href="#deck">Skip to controls</a>
+<a class="sr-only skip" href="#deck">Skip to controls</a>
 
 <header class="masthead">
   <p class="eyebrow">Desert Data Labs</p>
@@ -274,15 +286,16 @@ body.arriving .masthead, body.arriving .deck { opacity: 0; }
 <main class="room">
   <div class="case" id="case">
     <canvas id="movement" aria-hidden="true"></canvas>
-    <button id="crown" class="ctl ctl-crown" aria-label="Winding crown. Hold to wind the mainspring."></button>
-    <button id="slide" class="ctl ctl-slide" aria-label="Repeater slide. Chimes the current time on gongs."></button>
-    <button id="push-a" class="ctl ctl-push a" aria-label="Chronograph start and stop"></button>
-    <button id="push-b" class="ctl ctl-push b" aria-label="Chronograph reset"></button>
+    <!-- controls ship disabled: without JS they leave the tab order to the brochure -->
+    <button id="crown" class="ctl ctl-crown" disabled aria-label="Winding crown. Hold to wind the mainspring."></button>
+    <button id="slide" class="ctl ctl-slide" disabled aria-label="Repeater slide. Chimes the current time on gongs."></button>
+    <button id="push-a" class="ctl ctl-push a" disabled aria-pressed="false" aria-label="Chronograph start and stop"></button>
+    <button id="push-b" class="ctl ctl-push b" disabled aria-label="Chronograph reset"></button>
   </div>
 
   <nav class="deck" id="deck" aria-label="Views and sound">
-    <button id="plan-toggle" aria-pressed="false">Plan</button>
-    <button id="sound-toggle" aria-pressed="false">Sound</button>
+    <button id="plan-toggle" disabled aria-pressed="false">Plan</button>
+    <button id="sound-toggle" disabled aria-pressed="false">Sound</button>
   </nav>
 
   <p class="sr-only" role="status" aria-live="polite" id="sr-status"></p>
@@ -375,8 +388,8 @@ E.resize = () => {
   E.cv.width = w; E.cv.height = h;
   E.view = { w: r.width, h: r.height, px };
   E.baseScale = (Math.min(w, h) / 2) / E.R; /* world fits the circle at z=1 */
-  if (E.forge && E.forge.rebake) E.forge.rebake();
-  E.ticker.kick();
+  if (E.forge && E.forge.sprites) E.forge.rebake(); /* only rebake what was baked */
+  if (E.render) E.render.wake(); else E.ticker.kick(); /* a parked loop must repaint */
 };
 addEventListener('resize', () => { clearTimeout(E._rzT); E._rzT = setTimeout(E.resize, 120); });
 
@@ -412,13 +425,17 @@ E.say = (msg) => { const el = document.getElementById('sr-status'); if (el) el.t
 /* THE ESCAPEMENT — time. The movement keeps the visitor's REAL local time
    through a real gear train:
 
-     barrel ─ center wheel (1 rev/h) ─ third (×7.5) ─ fourth (1 rev/min)
-                                                        └─ escape (×10, 15 teeth)
-                                                             └─ pallet ─ balance
+     barrel ─ center wheel (1 rev/h) ─ third (×8) ─ fourth (×7.5, 1 rev/min)
+                                                      └─ escape (×10, 15 teeth)
+                                                           └─ pallet ─ balance
 
    18,000 A/H: the balance beats 5 times a second (period 400ms). Stepped
    wheels advance on the 200ms tick grid; the minute and hour creep
    continuously, exactly like the metal would.
+
+   EVERYTHING IS ANCHORED TO THE WALL CLOCK, never integrated frame-by-frame:
+   the reserve drains, the chronograph counts, and the stopped watch stays
+   exactly where it died — through parked frames, hidden tabs, and jank.
 
    The mainspring is real theater: it drains (even while you are away),
    the balance dies when it empties, and winding the crown brings the watch
@@ -435,12 +452,29 @@ E.time = (() => {
     phase: 'run',        /* run | die | stop | spin */
     reserve: 0.55,
     deficit: 0,          /* ms the display lags true time (grows while stopped) */
-    dieT0: 0,            /* when dying started */
+    stopAtDisp: 0,       /* wall ms of the display instant the watch stopped at */
+    dieT0: 0,
     spinT0: 0, spinFrom: 0,
     amp: 1,              /* balance amplitude factor 0..1 */
     chrono: { on: false, ms: 0 },
     justTicked: false,
+    _tzo: new Date().getTimezoneOffset(),
   };
+
+  const wrap12 = (ms) => ((ms % 43200000) + 43200000) % 43200000;
+
+  function enterStop(deficitMs) {
+    T.phase = 'stop';
+    T.amp = 0;
+    T.deficit = deficitMs;
+    T.stopAtDisp = Date.now() - deficitMs;
+  }
+  function enterSpin(fromMs) {
+    T.spinFrom = wrap12(fromMs);
+    T.deficit = T.spinFrom;
+    T.spinT0 = performance.now();
+    T.phase = 'spin';
+  }
 
   /* ---- persistence: the watch remembers being left alone ---- */
   const saved = E.store.get('movement', null);
@@ -456,43 +490,80 @@ E.time = (() => {
       deficit += gone * 1000;
     }
     T.reserve = E.clamp(reserve, 0, 1);
-    T.deficit = deficit;
-    T.phase = T.reserve <= 0.001 ? 'stop' : 'run';
-    T.amp = T.phase === 'run' ? 1 : 0;
+    if (T.reserve <= 0.001) enterStop(deficit);
+    else if (deficit > 800) { T.amp = 1; enterSpin(deficit); } /* interrupted catch-up finishes itself */
+    else { T.phase = 'run'; T.amp = 1; T.deficit = 0; }
     if (saved.chrono) T.chrono.ms = saved.chrono;
   }
   const persist = () => E.store.set('movement', {
-    at: Date.now(), reserve: T.reserve, deficit: Math.round(T.deficit),
+    at: Date.now(), reserve: T.reserve,
+    /* a spin persists as a running watch that still owes its catch-up */
+    deficit: T.phase === 'spin' ? Math.round(T.deficit) : (T.phase === 'stop' ? Math.round(T.deficit) : 0),
     phase: T.phase === 'stop' ? 'stop' : 'run', chrono: Math.round(T.chrono.ms),
   });
-  setInterval(persist, 10000);
+  setInterval(() => { if (!document.hidden) persist(); }, 10000);
   addEventListener('pagehide', persist);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) persist(); });
 
   /* ---- the display clock ---- */
   const dispMs = () => Date.now() - T.deficit;
 
-  /* per-frame advance (called from the render loop) */
+  /* per-frame advance — every quantity anchored to Date.now(), so a parked
+     loop or a hidden tab settles the books on its first frame back */
+  let lastWall = Date.now();
   let lastTicks = Math.floor(dispMs() / BEAT);
-  function step(dt) {
-    const dts = dt / 1000;
-    if (T.phase === 'run' || T.phase === 'die' || T.phase === 'spin') {
-      if (T.phase !== 'spin') T.reserve = Math.max(0, T.reserve - dts * DRAIN);
-      if (T.chrono.on && T.phase === 'run') T.chrono.ms += dt;
+  function step() {
+    const wallNow = Date.now();
+    const gap = Math.max(0, wallNow - lastWall);
+    lastWall = wallNow;
+
+    if (T.phase === 'run' || T.phase === 'die') {
+      if (T.chrono.on && T.phase === 'run') T.chrono.ms += gap;
+      const drained = (gap / 1000) * DRAIN;
+      if (T.reserve - drained <= 0) {
+        /* she died somewhere in the gap — place the death exactly */
+        const ranMs = (T.reserve / DRAIN) * 1000;
+        const deathWall = wallNow - gap + ranMs;
+        T.reserve = 0;
+        if (T.phase === 'run' && gap < 2000) {
+          T.phase = 'die'; T.dieT0 = performance.now();
+        } else if (T.phase === 'run') {
+          enterStop(wallNow - deathWall);
+          E.say('The movement has stopped. Hold the crown to wind it.');
+          persist();
+        }
+      } else {
+        T.reserve -= drained;
+      }
     }
-    if (T.phase === 'run' && T.reserve <= 0) { T.phase = 'die'; T.dieT0 = performance.now(); }
     if (T.phase === 'die') {
       const p = (performance.now() - T.dieT0) / 8000;
       T.amp = Math.max(0, 1 - p);
-      if (p >= 1) { T.phase = 'stop'; T.amp = 0; E.say('The movement has stopped. Hold the crown to wind it.'); persist(); }
+      if (p >= 1) {
+        enterStop(T.deficit);
+        E.say('The movement has stopped. Hold the crown to wind it.');
+        persist();
+      }
     }
-    if (T.phase === 'stop') { T.deficit += dt; }
+    if (T.phase === 'stop') {
+      T.deficit = Date.now() - T.stopAtDisp; /* wall-anchored: park-proof */
+    }
     if (T.phase === 'spin') {
       const p = E.clamp((performance.now() - T.spinT0) / 2400, 0, 1);
       T.deficit = T.spinFrom * (1 - E.ease(p));
-      T.amp = Math.min(1, T.amp + dts * 2);
+      T.amp = Math.min(1, T.amp + gap / 500);
       if (p >= 1) { T.deficit = 0; T.phase = 'run'; E.say('Wound and running. The hands have caught up with your time.'); persist(); }
     }
-    /* tick detection for the sound engine + escape-wheel settle */
+
+    /* DST / timezone change: route the jump through the spin, never a teleport */
+    const tzo = new Date().getTimezoneOffset();
+    if (tzo !== T._tzo) {
+      const shift = (T._tzo - tzo) * 60000;
+      T._tzo = tzo;
+      if (T.phase === 'run' && Math.abs(shift) > 1000) enterSpin(shift);
+    }
+
+    /* tick detection for the sound engine */
     const ticks = Math.floor(dispMs() / BEAT);
     T.justTicked = (T.phase === 'run' || T.phase === 'die') && ticks !== lastTicks;
     lastTicks = ticks;
@@ -503,10 +574,8 @@ E.time = (() => {
     const before = T.reserve;
     T.reserve = E.clamp(T.reserve + WIND * clicks, 0, 1);
     if ((T.phase === 'stop' || T.phase === 'die') && T.reserve > 0.06) {
-      /* she wakes: wrap the deficit to the 12h dial, then spin home */
-      T.spinFrom = T.deficit % 43200000;
-      T.spinT0 = performance.now();
-      T.phase = 'spin';
+      T.amp = Math.max(T.amp, 0.05);
+      enterSpin(T.deficit);
     }
     return T.reserve - before; /* how much actually took (0 at full wind) */
   }
@@ -518,32 +587,36 @@ E.time = (() => {
     const tIn = (ms % BEAT) / BEAT;                 /* 0..1 inside the beat */
     /* stepped advance with a fast settle (the wheel lands, it doesn't glide) */
     const settle = Math.min(1, tIn * 6);
-    const stepped = (stepsPerRev) => E.TAU * ((tick % stepsPerRev) + settle * ((T.phase === 'run' || T.phase === 'die' || T.phase === 'spin') ? 1 : 0)) / stepsPerRev;
+    const stepped = (stepsPerRev) => E.TAU * ((tick % stepsPerRev) + settle * (T.phase !== 'stop' ? 1 : 0)) / stepsPerRev;
 
-    const s = ms / 1000;
     const running = T.phase !== 'stop';
     const d = new Date(ms);
     const secOfDay = d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds() + d.getMilliseconds() / 1000;
 
-    /* balance: sinusoid on the 400ms period, ticks at the zero crossings */
+    /* balance: sinusoid on the 400ms period, ticks at the zero crossings.
+       Reduced motion: the balance holds its pose and the seconds hand steps
+       once a second — the movement is composed, not stripped. */
+    const rm = E.rm.matches;
     const phase = (ms % (BEAT * 2)) / (BEAT * 2);
-    const balance = Math.sin(phase * E.TAU) * 2.4 * T.amp; /* ±137° at full amplitude */
+    const balance = rm ? 0 : Math.sin(phase * E.TAU) * 2.4 * T.amp; /* ±137° at full amplitude */
     /* pallet fork: square-ish wave with soft corners, ±10° */
-    const fork = Math.tanh(Math.sin(phase * E.TAU) * 6) * 0.17 * (T.amp > 0.05 ? 1 : 0);
+    const fork = rm ? 0 : Math.tanh(Math.sin(phase * E.TAU) * 6) * 0.17 * (T.amp > 0.05 ? 1 : 0);
 
     return {
       balance, fork,
-      escape: running ? stepped(30) : E.TAU * (lastTicks % 30) / 30,
-      fourth: E.TAU * ((secOfDay % 60) / 60),               /* seconds hand wheel */
+      /* escape turns AGAINST the fourth wheel — meshed metal, opposite spins */
+      escape: -(running ? stepped(30) : E.TAU * (lastTicks % 30) / 30),
       third:  -E.TAU * ((secOfDay % 450) / 450),
       center: E.TAU * ((secOfDay % 3600) / 3600),           /* minute */
       hour:   E.TAU * ((secOfDay % 43200) / 43200),
       barrel: -E.TAU * ((secOfDay % 21600) / 21600),        /* 1 rev / 6h */
-      moon:   E.TAU * (((ms / 86400000 - NEWMOON) / SYNODIC) % 1) / 2, /* half turn per month (two moons on the disc) */
+      /* the disc turns half a revolution per synodic month; the quarter-turn
+         offset centers a moon in the aperture at FULL moon (age = half month) */
+      moon:   E.TAU * (((ms / 86400000 - NEWMOON) / SYNODIC) % 1) / 2 + Math.PI / 2,
       chronoSec: E.TAU * ((T.chrono.ms % 60000) / 60000),
       chronoMin: E.TAU * ((T.chrono.ms % 1800000) / 1800000),
       reserve: T.reserve,
-      seconds: stepped(300),                                 /* 5 steps/s over 60s — small-seconds hand */
+      seconds: rm ? E.TAU * Math.floor(secOfDay % 60) / 60 : stepped(300), /* rm: 1 step/s */
       secOfDay,
     };
   }
@@ -697,7 +770,7 @@ E.forge = (() => {
 
   /* a toothed wheel sprite: rim, teeth, face, crescent spoke cutouts, arbor */
   function bakeWheel(spec) {
-    const { r, teeth, spokes, style, pinion, px } = spec;
+    const { r, teeth, spokes, style, pinion, px, leaves = 8 } = spec;
     const pad = 6;
     const S = Math.ceil((r + pad) * 2 * px);
     const c = cvs(S, S), ctx = c.getContext('2d');
@@ -759,7 +832,6 @@ E.forge = (() => {
       ctx.strokeStyle = 'rgba(0,0,0,.4)'; ctx.lineWidth = 1; ctx.stroke();
       /* pinion leaves */
       ctx.strokeStyle = 'rgba(0,0,0,.28)'; ctx.lineWidth = 1.4;
-      const leaves = 8;
       for (let i = 0; i < leaves; i++) {
         const a = (i / leaves) * TAU;
         ctx.beginPath(); ctx.moveTo(Math.cos(a) * pinion * .35, Math.sin(a) * pinion * .35);
@@ -780,11 +852,12 @@ E.forge = (() => {
     ctx.beginPath();
     const n = 15;
     for (let i = 0; i < n; i++) {
+      /* rake mirrored: the wheel now turns clockwise-negative against the fourth */
       const a = (i / n) * TAU;
-      const tip = a, heel = a + 0.16, root = a + (TAU / n) * .55;
-      ctx.lineTo(Math.cos(tip) * (r + 7), Math.sin(tip) * (r + 7));
-      ctx.lineTo(Math.cos(heel) * (r + 2), Math.sin(heel) * (r + 2));
+      const tip = a, heel = a - 0.16, root = a - (TAU / n) * .55;
       ctx.lineTo(Math.cos(root) * (r * .8), Math.sin(root) * (r * .8));
+      ctx.lineTo(Math.cos(heel) * (r + 2), Math.sin(heel) * (r + 2));
+      ctx.lineTo(Math.cos(tip) * (r + 7), Math.sin(tip) * (r + 7));
     }
     ctx.closePath();
     ctx.fillStyle = metal(ctx, r, '#c9b078', '#f4e3b0', '#6d5426');
@@ -925,7 +998,7 @@ E.forge = (() => {
     }
 
     /* engravings */
-    engravedArc(ctx, 'DESERT DATA LABS', 0, 0, 448, Math.PI * .5 + .62, Math.PI * .5 - .62, 21, 'rgba(232,226,212,.42)', true);
+    engravedArc(ctx, 'DESERT DATA LABS', 0, 0, 422, Math.PI * .5 + .62, Math.PI * .5 - .62, 21, 'rgba(232,226,212,.42)', true);
     engravedArc(ctx, 'CAL. DDL-1 · 18000 A/H · 23 JEWELS', 0, 0, 428, -Math.PI * .5 - .58, -Math.PI * .5 + .58, 16, 'rgba(200,160,90,.62)', false);
 
     /* power reserve track along the west rim */
@@ -1079,7 +1152,7 @@ E.forge = (() => {
   }
 
   function bakeMoonDisc(px) {
-    const r = 86, pad = 4;
+    const r = 118, pad = 4; /* sized so the moons ride the SAME radius as the cover aperture */
     const S = Math.ceil((r + pad) * 2 * px);
     const c = cvs(S, S), ctx = c.getContext('2d');
     ctx.translate(S / 2, S / 2); ctx.scale(px, px);
@@ -1095,11 +1168,11 @@ E.forge = (() => {
       ctx.beginPath(); ctx.arc(Math.cos(a) * d, Math.sin(a) * d, .9 + rr() * 1.3, 0, TAU); ctx.fill();
     }
     for (const s of [1, -1]) {
-      ctx.save(); ctx.translate(0, s * r * .56);
-      const mg = ctx.createRadialGradient(-6, -7, 2, 0, 0, 24);
+      ctx.save(); ctx.translate(0, s * 74);
+      const mg = ctx.createRadialGradient(-7, -8, 2, 0, 0, 27);
       mg.addColorStop(0, '#fdf6dd'); mg.addColorStop(1, '#cfb264');
       ctx.fillStyle = mg;
-      ctx.beginPath(); ctx.arc(0, 0, 23, 0, TAU); ctx.fill();
+      ctx.beginPath(); ctx.arc(0, 0, 26, 0, TAU); ctx.fill();
       /* a quiet face: two craters */
       ctx.fillStyle = 'rgba(140,110,50,.4)';
       ctx.beginPath(); ctx.arc(-7, -3, 3.6, 0, TAU); ctx.fill();
@@ -1130,13 +1203,13 @@ E.forge = (() => {
       ctx.lineTo(Math.cos(a) * face, Math.sin(a) * face); ctx.stroke();
     }
     ctx.restore();
-    /* moon aperture: a fat crescent-topped window, NNE of center */
+    /* moon aperture: a round window at the exact radius the disc's moons ride */
     ctx.save();
     ctx.globalCompositeOperation = 'destination-out';
-    ctx.beginPath(); ctx.arc(0, -r * .56, 27, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.arc(0, -74, 26, 0, TAU); ctx.fill();
     ctx.restore();
     ctx.strokeStyle = 'rgba(240,217,162,.7)'; ctx.lineWidth = 2.4;
-    ctx.beginPath(); ctx.arc(0, -r * .56, 27, 0, TAU); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, -74, 26, 0, TAU); ctx.stroke();
     /* ratchet wheel at center (spins while winding) is drawn live; leave a seat */
     ctx.fillStyle = 'rgba(0,0,0,.35)';
     ctx.beginPath(); ctx.arc(0, 0, 46, 0, TAU); ctx.fill();
@@ -1239,41 +1312,57 @@ E.forge = (() => {
     return { c, r: R + pad, px };
   }
 
-  /* ---------- bake set + rebake on zoom tier change ---------- */
-  const sprites = {};
-  let bakedTier = 0;
+  /* ---------- bake set: capped pixels, cached per tier, hysteretic swap ----------
+     E.baseScale is DEVICE px per world unit (it already includes DPR), so it is
+     the ONLY scale factor here — multiplying by DPR again was the old bug.
+     Absolute pixel caps keep the four plate-class sprites under iOS canvas
+     limits on any display. A tier is built once and kept until resize. */
+  const tiers = {};
+  let current = null, bakedTier = 0;
+  const CAP_FLAT = 2800, CAP_WHEEL = 1400;
+  const capped = (units, s, cap) => Math.min(s, cap / units);
+
+  function buildSet(tier) {
+    const base = (E.baseScale || .5);
+    const flat = capped(1040, base * tier, CAP_FLAT);
+    const w = (units) => capped(units, base * Math.min(tier * 1.4, 3), CAP_WHEEL);
+    const set = {};
+    set.plate = bakePlate(flat);
+    set.bridges = bakeBridges(flat);
+    set.furniture = bakeFurniture(flat);
+    set.gongs = bakeGongs(flat);
+    set.centerW = bakeWheel({ r: L.center.r, teeth: 80, spokes: 5, style: 'brass', pinion: L.center.pinion, leaves: 16, px: w(292) });
+    set.thirdW = bakeWheel({ r: L.third.r, teeth: 75, spokes: 4, style: 'brass', pinion: L.third.pinion, leaves: 10, px: w(222) });
+    set.fourthW = bakeWheel({ r: L.fourth.r, teeth: 80, spokes: 4, style: 'brass', pinion: L.fourth.pinion, leaves: 10, px: w(192) });
+    set.hourW = bakeWheel({ r: 78, teeth: 60, spokes: 4, style: 'brass', pinion: 0, px: w(168) });
+    set.escapeW = bakeEscape(w(120));
+    set.balance = bakeBalance(w(270));
+    set.fork = bakeFork(w(208));
+    set.barrel = bakeBarrel(w(316));
+    set.moon = bakeMoonDisc(w(244));
+    set.cover = bakeBarrelCover(w(316));
+    set.ratchet = bakeRatchet(w(92));
+    set.cock = bakeCock(w(540));
+    return set;
+  }
+
   function bake(tier) {
-    const px = Math.min(E.view.px * tier, 4);
-    sprites.plate = bakePlate(Math.min(px, 2.5) * (E.baseScale || .5));
-    sprites.bridges = bakeBridges(Math.min(px, 2.5) * (E.baseScale || .5));
-    sprites.furniture = bakeFurniture(Math.min(px, 2.5) * (E.baseScale || .5));
-    sprites.gongs = bakeGongs(Math.min(px, 2.5) * (E.baseScale || .5));
-    const s = (E.baseScale || .5) * px;
-    sprites.centerW = bakeWheel({ r: L.center.r, teeth: 80, spokes: 5, style: 'brass', pinion: L.center.pinion, px: s });
-    sprites.thirdW = bakeWheel({ r: L.third.r, teeth: 75, spokes: 4, style: 'brass', pinion: L.third.pinion, px: s });
-    sprites.fourthW = bakeWheel({ r: L.fourth.r, teeth: 80, spokes: 4, style: 'brass', pinion: L.fourth.pinion, px: s });
-    sprites.hourW = bakeWheel({ r: 78, teeth: 60, spokes: 4, style: 'brass', pinion: 0, px: s });
-    sprites.escapeW = bakeEscape(s);
-    sprites.balance = bakeBalance(s);
-    sprites.fork = bakeFork(s);
-    sprites.barrel = bakeBarrel(s);
-    sprites.moon = bakeMoonDisc(s);
-    sprites.cover = bakeBarrelCover(s);
-    sprites.ratchet = bakeRatchet(s);
-    sprites.cock = bakeCock(s);
+    tiers[tier] = buildSet(tier);
+    current = tiers[tier];
     bakedTier = tier;
   }
+  function rebake() { for (const k in tiers) delete tiers[k]; bake(bakedTier || 1); }
 
-  function rebake() { bake(bakedTier || 1); }
-
-  /* pick a sharper tier when the camera settles zoomed-in */
-  function tierFor(z) { return z > 2.2 ? 2.5 : 1; }
+  /* hysteresis: sharpen past 2.4, soften below 1.9 — no ping-pong at the line */
   function maybeRetier() {
-    const t = tierFor(E.cam.z);
-    if (t !== bakedTier) bake(t);
+    const t = E.cam.z > 2.4 ? 2.5 : (E.cam.z < 1.9 ? 1 : bakedTier);
+    if (t === bakedTier) return;
+    if (!tiers[t]) tiers[t] = buildSet(t);
+    current = tiers[t];
+    bakedTier = t;
   }
 
-  return { L, sprites, bake, rebake, maybeRetier };
+  return { L, get sprites() { return current; }, bake, rebake, maybeRetier };
 })();
 
 
@@ -1282,11 +1371,14 @@ E.forge = (() => {
    hands) as vectors so they stay crisp at any zoom.
 
    The plan view lifts the movement into its layers: every draw group takes a
-   lift index; E.plan.p fans them apart. */
+   lift index; E.plan.p fans them apart.
+
+   After dark the order matters: the night multiply lays its blue weight over
+   the metal FIRST, then the lume is painted with 'lighter' so it actually
+   glows out of the darkness instead of drowning in it. */
 E.fx = {
   hammerA: 0, hammerB: 0,      /* repeater hammers, 0..1 strike pose (sound sets, render decays) */
-  ratchetSpin: 0,              /* radians of ratchet wheel from winding */
-  crownSpin: 0,
+  ratchetSpin: 0,              /* radians/s of ratchet wheel from winding */
 };
 E.plan = { p: 0, on: false };  /* exploded factor */
 
@@ -1309,37 +1401,34 @@ E.render = (() => {
     ctx.restore();
   }
 
-  /* live hairspring: a breathing Archimedean spiral in blued steel */
+  /* live hairspring: a breathing Archimedean spiral in blued steel.
+     The collet end swings with the balance; the outer terminal stays pinned
+     at the stud — the rotation decays to zero along the spiral's length. */
   function drawHairspring(ctx, wx, wy, balanceA, lift) {
     const s = E.baseScale * E.cam.z;
     const [sx, sy] = E.w2s(wx, wy - lift);
     ctx.save();
     ctx.translate(sx, sy);
-    ctx.rotate(balanceA * 0.22);
     const breathe = 1 + Math.sin(balanceA) * 0.05;
     ctx.strokeStyle = 'rgba(127,160,239,.75)';
     ctx.lineWidth = Math.max(.7, 1.15 * s);
     ctx.beginPath();
-    const turns = 6.5, r0 = 9, r1 = 46 * breathe;
+    const turns = 6.5, r0 = 15, r1 = 46 * breathe;
     for (let t = 0; t <= 1; t += 1 / 140) {
-      const a = t * turns * TAU;
+      const a = t * turns * TAU + balanceA * 0.28 * (1 - t);
       const r = (r0 + (r1 - r0) * t) * s;
       const x = Math.cos(a) * r, y = Math.sin(a) * r;
       t === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
     }
     ctx.stroke();
+    /* the stud: where the outer terminal is pinned to the cock */
+    const aEnd = (turns * TAU) % TAU;
+    ctx.fillStyle = '#8b93a0';
+    ctx.beginPath(); ctx.arc(Math.cos(aEnd) * 46 * s, Math.sin(aEnd) * 46 * s, Math.max(1.5, 3 * s), 0, TAU); ctx.fill();
     ctx.restore();
   }
 
-  function hand(ctx, wx, wy, angle, len, tail, w, color, lift, lume) {
-    const s = E.baseScale * E.cam.z;
-    const [sx, sy] = E.w2s(wx, wy - lift);
-    ctx.save();
-    ctx.translate(sx, sy);
-    ctx.rotate(angle);
-    ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = 6 * s; ctx.shadowOffsetY = 3 * s;
-    /* lozenge silhouette */
-    ctx.fillStyle = color;
+  function handPath(ctx, s, len, tail, w) {
     ctx.beginPath();
     ctx.moveTo(-w * .55 * s, 0);
     ctx.lineTo(-w * .16 * s, -len * .72 * s);
@@ -1349,18 +1438,59 @@ E.render = (() => {
     ctx.lineTo(w * .3 * s, tail * s);
     ctx.lineTo(-w * .3 * s, tail * s);
     ctx.closePath();
+  }
+
+  function hand(ctx, wx, wy, angle, len, tail, w, color, lift) {
+    const s = E.baseScale * E.cam.z;
+    const [sx, sy] = E.w2s(wx, wy - lift);
+    ctx.save();
+    ctx.translate(sx, sy);
+    ctx.rotate(angle);
+    /* cheap drop shadow: the same silhouette, offset, no blur raster cost */
+    ctx.save();
+    ctx.translate(0, 3 * s);
+    handPath(ctx, s, len, tail, w);
+    ctx.fillStyle = 'rgba(0,0,0,.32)';
     ctx.fill();
-    if (lume > 0.02) {
-      ctx.shadowBlur = 0;
-      ctx.globalAlpha = lume;
-      ctx.strokeStyle = 'rgba(185,230,200,.9)';
-      ctx.lineWidth = Math.max(1, 1.4 * s);
-      ctx.beginPath(); ctx.moveTo(0, -len * .3 * s); ctx.lineTo(0, -len * .92 * s); ctx.stroke();
-    }
+    ctx.restore();
+    handPath(ctx, s, len, tail, w);
+    ctx.fillStyle = color;
+    ctx.fill();
     /* boss */
-    ctx.globalAlpha = 1;
     ctx.fillStyle = '#22252b';
     ctx.beginPath(); ctx.arc(0, 0, Math.max(2.5, w * .5 * s), 0, TAU); ctx.fill();
+    ctx.restore();
+  }
+
+  /* the lume pass: painted AFTER the night multiply, additive, so it glows */
+  function lumePass(ctx, A, nf, lift) {
+    const glow = nf * 0.9;
+    if (glow < 0.03) return;
+    const s = E.baseScale * E.cam.z;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const stroke = (wx, wy, angle, from, to, width, alpha) => {
+      const [sx, sy] = E.w2s(wx, wy - lift);
+      ctx.save();
+      ctx.translate(sx, sy); ctx.rotate(angle);
+      ctx.strokeStyle = `rgba(185,230,200,${alpha})`;
+      ctx.lineWidth = width;
+      ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(0, -from * s); ctx.lineTo(0, -to * s); ctx.stroke();
+      ctx.restore();
+    };
+    /* halo then core, minute + hour */
+    stroke(0, 0, A.center, 384 * .3, 384 * .92, Math.max(3, 5.2 * s), .12 * glow);
+    stroke(0, 0, A.center, 384 * .3, 384 * .92, Math.max(1, 1.6 * s), .8 * glow);
+    stroke(L().hourP[0], L().hourP[1], A.hour, 66 * .28, 66 * .9, Math.max(3, 4.6 * s), .12 * glow);
+    stroke(L().hourP[0], L().hourP[1], A.hour, 66 * .28, 66 * .9, Math.max(1, 1.5 * s), .8 * glow);
+    /* twelve pips on the chapter ring */
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * TAU - Math.PI / 2;
+      const [sx, sy] = E.w2s(Math.cos(a) * 390, Math.sin(a) * 390 - lift);
+      ctx.fillStyle = `rgba(185,230,200,${.5 * glow})`;
+      ctx.beginPath(); ctx.arc(sx, sy, Math.max(1.4, 2.6 * s), 0, TAU); ctx.fill();
+    }
     ctx.restore();
   }
 
@@ -1390,14 +1520,13 @@ E.render = (() => {
     return 1 - (h - 5) / 3; /* 5..8 dawn */
   }
 
-  let srMinute = -1;
   let quiet = 0;
 
   function loop(dt) {
     const cv = E.cv, ctx = E.cx;
     if (!E.view.w) { E.resize(); if (!E.view.w) return; } /* boot raced layout: keep trying */
 
-    E.time.step(dt);
+    E.time.step();
     const T = E.time.T;
 
     /* camera easing */
@@ -1416,8 +1545,9 @@ E.render = (() => {
     E.fx.hammerB = Math.max(0, E.fx.hammerB - dt / 90);
 
     /* park the frame loop when nothing can move (stopped + settled + idle) */
-    if (T.phase === 'stop' && !camMoving && !planMoving && E.fx.hammerA === 0 && E.fx.hammerB === 0 && !E.fx.winding) {
-      if (quiet++ > 4) { E.render.parked = true; return false; } /* leave the ticker; interact rekicks */
+    if (T.phase === 'stop' && !camMoving && !planMoving &&
+        E.fx.hammerA === 0 && E.fx.hammerB === 0 && E.fx.ratchetSpin < 0.02) {
+      if (quiet++ > 4) { E.render.parked = true; return false; } /* leave the ticker; wake() rejoins */
     } else quiet = 0;
 
     const A = E.time.angles();
@@ -1478,65 +1608,66 @@ E.render = (() => {
     }
 
     /* ---- 7 hands ---- */
-    const lume = nf * 0.85;
-    hand(ctx, L().hourP[0], L().hourP[1], A.hour, 66, 16, 10, '#3e5fb8', lift(7), lume);
-    hand(ctx, L().fourthP[0], L().fourthP[1], A.seconds, 64, 20, 6, '#3e5fb8', lift(7), 0);
-    hand(ctx, L().chronoP[0], L().chronoP[1], A.chronoMin, 46, 12, 6, '#9aa3ad', lift(7), 0);
+    hand(ctx, L().hourP[0], L().hourP[1], A.hour, 66, 16, 10, '#3e5fb8', lift(7));
+    hand(ctx, L().fourthP[0], L().fourthP[1], A.seconds, 64, 20, 6, '#3e5fb8', lift(7));
+    hand(ctx, L().chronoP[0], L().chronoP[1], A.chronoMin, 46, 12, 6, '#9aa3ad', lift(7));
     /* chrono center seconds — only when it has ever run */
     if (T.chrono.ms > 0 || T.chrono.on) {
-      hand(ctx, 0, 0, A.chronoSec, 386, 60, 7, '#c9ced6', lift(7), 0);
+      hand(ctx, 0, 0, A.chronoSec, 386, 60, 7, '#c9ced6', lift(7));
     }
-    hand(ctx, 0, 0, A.center, 384, 66, 13, '#3e5fb8', lift(7), lume);
+    hand(ctx, 0, 0, A.center, 384, 66, 13, '#3e5fb8', lift(7));
 
-    /* ---- plan labels ---- */
+    /* ---- plan labels (CSS-pixel sized, backed, so they read on any screen) ---- */
     if (P > 0.03) {
       ctx.save();
       ctx.globalAlpha = P;
-      ctx.font = `${Math.max(10, 13 * E.baseScale * E.cam.z * 2)}px Georgia, serif`;
-      ctx.fillStyle = 'rgba(232,226,212,.72)';
-      ctx.strokeStyle = 'rgba(232,226,212,.28)';
+      const px = E.view.px;
+      const fs = Math.max(11, 12 * E.baseScale * E.cam.z * 2 / px) * px;
+      ctx.font = `${fs}px Georgia, serif`;
       ctx.textAlign = 'left';
       for (let i = 0; i < LAYERS.length; i++) {
         const [sx, sy] = E.w2s(L().plateR * 0.78, -lift(i));
-        ctx.lineWidth = 1;
+        const wtext = ctx.measureText(LAYERS[i]).width;
+        ctx.fillStyle = 'rgba(11,12,14,.62)';
+        ctx.fillRect(sx + 16, sy - fs * .72, wtext + 10, fs * 1.5);
+        ctx.strokeStyle = 'rgba(232,226,212,.28)'; ctx.lineWidth = 1;
         ctx.beginPath(); ctx.moveTo(sx - 30, sy); ctx.lineTo(sx + 14, sy); ctx.stroke();
-        ctx.fillText(LAYERS[i], sx + 20, sy + 4);
+        ctx.fillStyle = 'rgba(232,226,212,.78)';
+        ctx.fillText(LAYERS[i], sx + 20, sy + fs * .32);
       }
       ctx.restore();
     }
 
-    /* ---- night: ambient + a breath of lume haze ---- */
+    /* ---- night: the room dims, then the lume answers ---- */
     if (nf > 0.02) {
       ctx.save();
       ctx.globalCompositeOperation = 'multiply';
       ctx.fillStyle = `rgba(70,86,130,${0.22 * nf})`;
       ctx.fillRect(0, 0, cv.width, cv.height);
       ctx.restore();
+      lumePass(ctx, A, nf, lift(7));
     }
 
-    /* vignette */
-    const vg = ctx.createRadialGradient(cv.width / 2, cv.height / 2, Math.min(cv.width, cv.height) * .32, cv.width / 2, cv.height / 2, Math.min(cv.width, cv.height) * .52);
-    vg.addColorStop(0, 'rgba(0,0,0,0)');
-    vg.addColorStop(1, 'rgba(0,0,0,.5)');
-    ctx.fillStyle = vg;
+    /* vignette (cached per canvas size) */
+    if (!E._vg || E._vgW !== cv.width) {
+      E._vg = ctx.createRadialGradient(cv.width / 2, cv.height / 2, Math.min(cv.width, cv.height) * .32, cv.width / 2, cv.height / 2, Math.min(cv.width, cv.height) * .52);
+      E._vg.addColorStop(0, 'rgba(0,0,0,0)');
+      E._vg.addColorStop(1, 'rgba(0,0,0,.5)');
+      E._vgW = cv.width;
+    }
+    ctx.fillStyle = E._vg;
     ctx.fillRect(0, 0, cv.width, cv.height);
-
-    /* SR clock: announce the display time once a minute */
-    const min = Math.floor(E.time.dispMs() / 60000);
-    if (min !== srMinute) {
-      srMinute = min;
-      if (T.phase === 'run') E.say(E.time.timeLabel());
-    }
   }
 
   function wake() {
+    quiet = 0;
     if (E.render.parked) { E.render.parked = false; E.ticker.add(loop); }
     E.ticker.kick();
   }
 
   function boot() {
-    E.resize();
-    E.forge.bake(1);
+    E.resize();                                /* resize rebakes if already baked */
+    if (!E.forge.sprites) E.forge.bake(1);     /* exactly one boot bake */
     E.ticker.add(loop);
   }
 
@@ -1548,13 +1679,16 @@ E.render = (() => {
 
    THE LAW: no sound before an activation-bearing gesture. The chip never
    claims ON until ctx.state === 'running'. An explicit opt-out is remembered.
-   Hidden tabs are silent. The tick is scheduled on the AUDIO clock against
-   the movement's 200ms grid, so what you hear is what the balance does. */
+   Hidden tabs are silent — including ticks already queued inside the
+   lookahead horizon, which are muted through a dedicated tick bus.
+   The tick is scheduled on the AUDIO clock against the movement's 200ms
+   grid, so what you hear is what the balance does. */
 E.sound = (() => {
-  let ctx = null, master = null, comp = null;
+  let ctx = null, master = null, comp = null, tickBus = null;
   let enabled = E.store.get('sound', true);   /* intent; hardware may still be off */
-  let repeaterBusy = false;
-  let lastHourStruck = -1;
+  let repeaterEndsAt = 0;                     /* audio-clock time the chime owns */
+  let lastHourStruck = -1, pendingHour = null;
+  let schedTimer = null, lastScheduledTick = 0;
   const chip = document.getElementById('sound-toggle');
 
   function build() {
@@ -1565,12 +1699,21 @@ E.sound = (() => {
     master = ctx.createGain();
     master.gain.value = 0.9;
     master.connect(comp).connect(ctx.destination);
+    tickBus = ctx.createGain();
+    tickBus.gain.value = 1;
+    tickBus.connect(master);
     document.addEventListener('visibilitychange', () => {
       if (!ctx) return;
-      if (document.hidden) ctx.suspend();
-      else if (enabled) ctx.resume().then(reflect);
+      if (document.hidden) {
+        tickBus.gain.value = 0;              /* silence anything queued in the horizon */
+        ctx.suspend();
+      } else if (enabled) {
+        ctx.resume().then(() => { setTimeout(() => { if (tickBus) tickBus.gain.value = 1; }, 420); reflect(); }).catch(reflect);
+      }
     });
     ctx.onstatechange = reflect;
+    /* the scheduler exists only once there is a context to schedule on */
+    schedTimer = setInterval(() => { if (!document.hidden) scheduler(); }, 150);
   }
 
   function reflect() {
@@ -1582,20 +1725,21 @@ E.sound = (() => {
   function arm() {
     if (!enabled) return;
     build();
-    if (ctx.state !== 'running') ctx.resume().then(reflect);
+    if (ctx.state !== 'running') ctx.resume().then(reflect).catch(reflect);
     else reflect();
   }
 
   function toggle() {
     enabled = !enabled;
     E.store.set('sound', enabled);
-    if (enabled) { build(); ctx.resume().then(reflect); E.say('Sound on.'); }
+    if (enabled) { build(); ctx.resume().then(reflect).catch(reflect); E.say('Sound on.'); }
     else { if (ctx) ctx.suspend(); reflect(); E.say('Sound off.'); }
   }
   if (chip) chip.addEventListener('click', toggle);
 
   const now = () => ctx.currentTime;
   const audible = () => ctx && ctx.state === 'running' && enabled;
+  const chimeBusy = () => !!(ctx && now() < repeaterEndsAt);
 
   /* ---- voices ---- */
 
@@ -1614,8 +1758,8 @@ E.sound = (() => {
     g.gain.exponentialRampToValueAtTime(0.06 * vel, when + 0.002);
     g.gain.exponentialRampToValueAtTime(0.0001, when + 0.028);
     o.connect(bp).connect(g);
-    if (pan) { pan.pan.value = -0.25; g.connect(pan).connect(master); }
-    else g.connect(master);
+    if (pan) { pan.pan.value = -0.25; g.connect(pan).connect(tickBus); }
+    else g.connect(tickBus);
     o.start(when); o.stop(when + 0.05);
   }
 
@@ -1687,7 +1831,7 @@ E.sound = (() => {
     o.start(when); o.stop(when + 0.1);
   }
 
-  /* the catch-up whir: hands spinning home */
+  /* the catch-up whir: hands spinning home (fired ONCE per spin, by interact) */
   function whir(durMs) {
     if (!audible()) return;
     const when = now(), dur = durMs / 1000;
@@ -1711,11 +1855,7 @@ E.sound = (() => {
   }
 
   /* ---- the repeater: reads the display clock, strikes it out ---- */
-  function repeater() {
-    if (repeaterBusy) return;
-    arm();
-    if (!audible()) { E.say('Sound is off — the repeater is silent. ' + E.time.timeLabel()); return; }
-    repeaterBusy = true;
+  function strikeSequence() {
     const { hours, quarters, minutes } = E.time.repeaterCount();
     const LOW = 659, HIGH = 831;
     let t = now() + 0.25;
@@ -1731,13 +1871,24 @@ E.sound = (() => {
     }
     if (minutes) t += 0.2;
     for (let i = 0; i < minutes; i++) { gong(HIGH, t, .8); hammer('A', t); t += 0.42; }
-    const total = (t - now()) * 1000 + 2500;
-    setTimeout(() => { repeaterBusy = false; }, total - 2200);
+    repeaterEndsAt = t + 2.2; /* audio-clock ownership: suspend extends it correctly */
     E.say(`Repeater: ${hours} ${hours === 1 ? 'hour' : 'hours'}, ${quarters} ${quarters === 1 ? 'quarter' : 'quarters'}, ${minutes} ${minutes === 1 ? 'minute' : 'minutes'} — ${E.time.timeLabel()}.`);
   }
 
+  function repeater() {
+    if (chimeBusy()) return;
+    if (!enabled) { E.say('Sound is off — the repeater is silent. ' + E.time.timeLabel()); return; }
+    build();
+    if (ctx.state === 'running') { strikeSequence(); return; }
+    /* the first-ever gesture may BE the repeater: wait for the async unlock */
+    ctx.resume().then(() => {
+      reflect();
+      if (audible()) strikeSequence();
+      else E.say('Sound is not available — ' + E.time.timeLabel());
+    }).catch(() => E.say('Sound is not available — ' + E.time.timeLabel()));
+  }
+
   /* ---- the tick scheduler: audio-clock lookahead against the 200ms grid ---- */
-  let schedTimer = null, lastScheduledTick = 0;
   function scheduler() {
     if (!audible()) return;
     const T = E.time.T;
@@ -1755,14 +1906,16 @@ E.sound = (() => {
       lastScheduledTick = tick;
       tick++;
     }
-    /* the passing hour: one low gong on the display clock's top of hour */
+    /* the passing hour: due at :00, struck the moment the chime lane is clear */
     const d = new Date(dispNow);
-    if (d.getMinutes() === 0 && d.getSeconds() < 2 && d.getHours() !== lastHourStruck && !repeaterBusy) {
-      lastHourStruck = d.getHours();
+    if (d.getMinutes() === 0 && d.getHours() !== lastHourStruck) pendingHour = d.getHours();
+    if (d.getMinutes() > 1) pendingHour = null;               /* missed its moment gracefully */
+    if (pendingHour !== null && !chimeBusy()) {
+      lastHourStruck = pendingHour;
+      pendingHour = null;
       gong(659, now() + 0.05, .8);
     }
   }
-  setInterval(() => { if (ctx) scheduler(); }, 150);
 
   return { arm, toggle, ratchet, pusher, whir, repeater, reflect, get enabled() { return enabled; } };
 })();
@@ -1770,7 +1923,8 @@ E.sound = (() => {
 
 /* THE ESCAPEMENT — interaction. Every verb works three ways: pointer on the
    metal, a real button on the case, and a bare key. W winds, R chimes,
-   C runs the chronograph, X resets it, P opens the plan. */
+   C runs the chronograph, X resets it, P opens the plan; +/−, arrows and 0
+   drive the camera without a pointer. */
 (() => {
   const cv = E.cv;
   const crown = document.getElementById('crown');
@@ -1780,9 +1934,10 @@ E.sound = (() => {
 
   const anyGesture = () => { E.sound.arm(); E.render.wake(); };
   addEventListener('pointerdown', anyGesture, { capture: true });
+  addEventListener('pointerup', anyGesture, { capture: true }); /* touch: the RELEASE is activation-bearing */
   addEventListener('keydown', anyGesture, { capture: true });
 
-  /* ---------- camera: pan / wheel-zoom / pinch / double-tap ---------- */
+  /* ---------- camera: pan / wheel-zoom / pinch / double-tap / keys ---------- */
   const ptrs = new Map();
   let pinch0 = 0, pinchZ0 = 1, moved = 0;
 
@@ -1798,11 +1953,13 @@ E.sound = (() => {
     if (E.plan.on) return;
     cv.setPointerCapture(e.pointerId);
     ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    moved = 0;
     if (ptrs.size === 2) {
+      moved = 99; /* a second finger is never a tap */
       const [a, b] = [...ptrs.values()];
       pinch0 = Math.hypot(a.x - b.x, a.y - b.y);
       pinchZ0 = E.cam.tz;
+    } else {
+      moved = 0;
     }
     cv.classList.add('dragging');
   });
@@ -1866,25 +2023,38 @@ E.sound = (() => {
   /* ---------- the crown: hold to wind ---------- */
   let windTimer = null, crownPos = 0;
   function windOnce() {
+    const wasSpinning = E.time.T.phase === 'spin';
     const took = E.time.wind(1);
     if (took > 0) {
       E.sound.ratchet();
       E.fx.ratchetSpin = 1;
       crownPos += 7;
-      crown.style.backgroundPositionY = crownPos + 'px';
-      if (E.time.T.phase === 'spin') { E.sound.whir(2400); }
+      crown.style.backgroundPosition = `0 ${crownPos}px, 0 0`; /* flutes turn; base gradient stays */
+      if (!wasSpinning && E.time.T.phase === 'spin') E.sound.whir(2400); /* once per wake, not per click */
     }
     E.render.wake();
   }
   const windStart = (e) => {
-    if (e.type === 'pointerdown') e.preventDefault();
+    if (e.type === 'pointerdown') {
+      e.preventDefault();
+      if (e.pointerId !== undefined) { try { crown.setPointerCapture(e.pointerId); } catch { } }
+    }
     if (windTimer) return;
     windOnce();
     windTimer = setInterval(windOnce, 120);
   };
-  const windStop = () => { clearInterval(windTimer); windTimer = null; announceReserve(); };
+  const windStop = () => {
+    if (!windTimer) return;           /* only a real wind announces or clears */
+    clearInterval(windTimer);
+    windTimer = null;
+    announceReserve();
+  };
   crown.addEventListener('pointerdown', windStart);
+  crown.addEventListener('pointerup', windStop);
+  crown.addEventListener('pointercancel', windStop);
+  crown.addEventListener('lostpointercapture', windStop);
   addEventListener('pointerup', windStop);
+  addEventListener('blur', windStop);
   crown.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); windStart(e); } });
   crown.addEventListener('keyup', windStop);
   crown.addEventListener('blur', windStop);
@@ -1897,8 +2067,9 @@ E.sound = (() => {
 
   /* crown glint when the movement is asking for it */
   setInterval(() => {
-    const stopped = E.time.T.phase === 'stop' || (E.time.T.phase === 'run' && E.time.T.reserve < 0.12);
-    crown.classList.toggle('glint', stopped && !E.rm.matches);
+    if (document.hidden) return;
+    const wants = E.time.T.phase === 'stop' || (E.time.T.phase === 'run' && E.time.T.reserve < 0.12);
+    crown.classList.toggle('glint', wants && !E.rm.matches);
   }, 1200);
 
   /* ---------- the repeater slide ---------- */
@@ -1933,6 +2104,7 @@ E.sound = (() => {
     const ch = E.time.T.chrono;
     if (E.time.T.phase === 'stop') { E.say('The movement is stopped — wind the crown first.'); return; }
     ch.on = !ch.on;
+    pushA.setAttribute('aria-pressed', String(ch.on));
     E.sound.pusher();
     E.say(ch.on ? 'Chronograph running.' : `Chronograph stopped at ${(ch.ms / 1000).toFixed(1)} seconds.`);
     E.render.wake();
@@ -1948,16 +2120,34 @@ E.sound = (() => {
   pushB.addEventListener('click', chronoReset);
 
   /* ---------- bare keys ---------- */
+  const PAN = 60;
   addEventListener('keydown', (e) => {
     if (e.target instanceof HTMLElement && (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT')) return;
-    if (e.repeat && e.key.toLowerCase() !== 'w') return;
-    switch (e.key.toLowerCase()) {
-      case 'w': windOnce(); break;
-      case 'r': E.sound.repeater(); break;
-      case 'c': chronoToggle(); break;
-      case 'x': chronoReset(); break;
-      case 'p': E.planToggle && E.planToggle(); break;
+    const k = e.key;
+    if (e.repeat && !['w', 'W', '+', '=', '-', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(k)) return;
+    switch (k) {
+      case 'w': case 'W': windOnce(); return;
+      case 'r': case 'R': E.sound.repeater(); return;
+      case 'c': case 'C': chronoToggle(); return;
+      case 'x': case 'X': chronoReset(); return;
+      case 'p': case 'P': E.planToggle && E.planToggle(); return;
     }
+    if (E.plan.on) return;
+    const z = E.cam.tz;
+    switch (k) {
+      case '+': case '=': E.cam.tz = E.clamp(z * 1.18, 1, 5); break;
+      case '-': E.cam.tz = E.clamp(z / 1.18, 1, 5); break;
+      case '0': E.cam.tz = 1; E.cam.tx = 0; E.cam.ty = 0; break;
+      case 'ArrowUp': E.cam.ty -= PAN / z; break;
+      case 'ArrowDown': E.cam.ty += PAN / z; break;
+      case 'ArrowLeft': E.cam.tx -= PAN / z; break;
+      case 'ArrowRight': E.cam.tx += PAN / z; break;
+      default: return;
+    }
+    clampCam();
+    E.render.wake();
+    clearTimeout(E._zoomSayT);
+    E._zoomSayT = setTimeout(() => E.say(`Zoom ${E.cam.tz.toFixed(1)}×.`), 500);
   });
 })();
 
@@ -1998,6 +2188,9 @@ E.sound = (() => {
     }
 
     E.render.boot();
+
+    /* the engine is alive: hand the controls over */
+    document.querySelectorAll('.ctl, .deck button').forEach(b => { b.disabled = false; });
 
     if (!E.rm.matches) {
       let done = false;

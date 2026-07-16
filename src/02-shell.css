@@ -24,6 +24,15 @@ body::before {
   position: absolute; width: 1px; height: 1px;
   clip-path: inset(50%); overflow: hidden; white-space: nowrap;
 }
+a.skip:focus-visible {
+  width: auto; height: auto; clip-path: none;
+  position: fixed; top: 14px; left: 50%; transform: translateX(-50%);
+  z-index: 60;
+  background: var(--ink-2); color: var(--paper);
+  font-variant: small-caps; letter-spacing: .14em; text-decoration: none;
+  padding: 9px 16px; border: 1px solid var(--brass-lo);
+  outline: 2px solid var(--focus); outline-offset: 2px;
+}
 
 /* ---- masthead: the only words in the room ---- */
 .masthead {
@@ -103,6 +112,7 @@ body::before {
   position: absolute; z-index: 20;
   border: 0; cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  touch-action: none; /* a hold on the crown is a hold, never a scroll */
 }
 .ctl::after { /* invisible hit-area expansion: gloved thumbs welcome */
   content: '';
@@ -176,6 +186,7 @@ body::before {
 }
 .deck button:hover { color: var(--paper); border-color: #4a4f59; }
 .deck button[aria-pressed="true"] { color: var(--brass); border-color: var(--brass-lo); }
+.deck button[aria-pressed="true"]::before { content: '\25CF\2002'; font-size: 8px; vertical-align: 1px; } /* state survives without color */
 .deck button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
 /* ---- arrival ---- */
@@ -204,6 +215,7 @@ body.arriving .masthead, body.arriving .deck { opacity: 0; }
 
 @media (forced-colors: active) {
   .deck button, .ctl { border: 1px solid ButtonText; }
+  .deck button[aria-pressed="true"] { border: 3px double Highlight; forced-color-adjust: none; color: Highlight; }
 }
 
 /* phones: tuck the masthead, leave air for the crown and slide */

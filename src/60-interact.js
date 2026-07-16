@@ -1,6 +1,7 @@
 /* THE ESCAPEMENT — interaction. Every verb works three ways: pointer on the
    metal, a real button on the case, and a bare key. W winds, R chimes,
-   C runs the chronograph, X resets it, P opens the plan. */
+   C runs the chronograph, X resets it, P opens the plan; +/−, arrows and 0
+   drive the camera without a pointer. */
 (() => {
   const cv = E.cv;
   const crown = document.getElementById('crown');
@@ -10,9 +11,10 @@
 
   const anyGesture = () => { E.sound.arm(); E.render.wake(); };
   addEventListener('pointerdown', anyGesture, { capture: true });
+  addEventListener('pointerup', anyGesture, { capture: true }); /* touch: the RELEASE is activation-bearing */
   addEventListener('keydown', anyGesture, { capture: true });
 
-  /* ---------- camera: pan / wheel-zoom / pinch / double-tap ---------- */
+  /* ---------- camera: pan / wheel-zoom / pinch / double-tap / keys ---------- */
   const ptrs = new Map();
   let pinch0 = 0, pinchZ0 = 1, moved = 0;
 
@@ -28,11 +30,13 @@
     if (E.plan.on) return;
     cv.setPointerCapture(e.pointerId);
     ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    moved = 0;
     if (ptrs.size === 2) {
+      moved = 99; /* a second finger is never a tap */
       const [a, b] = [...ptrs.values()];
       pinch0 = Math.hypot(a.x - b.x, a.y - b.y);
       pinchZ0 = E.cam.tz;
+    } else {
+      moved = 0;
     }
     cv.classList.add('dragging');
   });
@@ -96,25 +100,38 @@
   /* ---------- the crown: hold to wind ---------- */
   let windTimer = null, crownPos = 0;
   function windOnce() {
+    const wasSpinning = E.time.T.phase === 'spin';
     const took = E.time.wind(1);
     if (took > 0) {
       E.sound.ratchet();
       E.fx.ratchetSpin = 1;
       crownPos += 7;
-      crown.style.backgroundPositionY = crownPos + 'px';
-      if (E.time.T.phase === 'spin') { E.sound.whir(2400); }
+      crown.style.backgroundPosition = `0 ${crownPos}px, 0 0`; /* flutes turn; base gradient stays */
+      if (!wasSpinning && E.time.T.phase === 'spin') E.sound.whir(2400); /* once per wake, not per click */
     }
     E.render.wake();
   }
   const windStart = (e) => {
-    if (e.type === 'pointerdown') e.preventDefault();
+    if (e.type === 'pointerdown') {
+      e.preventDefault();
+      if (e.pointerId !== undefined) { try { crown.setPointerCapture(e.pointerId); } catch { } }
+    }
     if (windTimer) return;
     windOnce();
     windTimer = setInterval(windOnce, 120);
   };
-  const windStop = () => { clearInterval(windTimer); windTimer = null; announceReserve(); };
+  const windStop = () => {
+    if (!windTimer) return;           /* only a real wind announces or clears */
+    clearInterval(windTimer);
+    windTimer = null;
+    announceReserve();
+  };
   crown.addEventListener('pointerdown', windStart);
+  crown.addEventListener('pointerup', windStop);
+  crown.addEventListener('pointercancel', windStop);
+  crown.addEventListener('lostpointercapture', windStop);
   addEventListener('pointerup', windStop);
+  addEventListener('blur', windStop);
   crown.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); windStart(e); } });
   crown.addEventListener('keyup', windStop);
   crown.addEventListener('blur', windStop);
@@ -127,8 +144,9 @@
 
   /* crown glint when the movement is asking for it */
   setInterval(() => {
-    const stopped = E.time.T.phase === 'stop' || (E.time.T.phase === 'run' && E.time.T.reserve < 0.12);
-    crown.classList.toggle('glint', stopped && !E.rm.matches);
+    if (document.hidden) return;
+    const wants = E.time.T.phase === 'stop' || (E.time.T.phase === 'run' && E.time.T.reserve < 0.12);
+    crown.classList.toggle('glint', wants && !E.rm.matches);
   }, 1200);
 
   /* ---------- the repeater slide ---------- */
@@ -163,6 +181,7 @@
     const ch = E.time.T.chrono;
     if (E.time.T.phase === 'stop') { E.say('The movement is stopped — wind the crown first.'); return; }
     ch.on = !ch.on;
+    pushA.setAttribute('aria-pressed', String(ch.on));
     E.sound.pusher();
     E.say(ch.on ? 'Chronograph running.' : `Chronograph stopped at ${(ch.ms / 1000).toFixed(1)} seconds.`);
     E.render.wake();
@@ -178,15 +197,33 @@
   pushB.addEventListener('click', chronoReset);
 
   /* ---------- bare keys ---------- */
+  const PAN = 60;
   addEventListener('keydown', (e) => {
     if (e.target instanceof HTMLElement && (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT')) return;
-    if (e.repeat && e.key.toLowerCase() !== 'w') return;
-    switch (e.key.toLowerCase()) {
-      case 'w': windOnce(); break;
-      case 'r': E.sound.repeater(); break;
-      case 'c': chronoToggle(); break;
-      case 'x': chronoReset(); break;
-      case 'p': E.planToggle && E.planToggle(); break;
+    const k = e.key;
+    if (e.repeat && !['w', 'W', '+', '=', '-', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(k)) return;
+    switch (k) {
+      case 'w': case 'W': windOnce(); return;
+      case 'r': case 'R': E.sound.repeater(); return;
+      case 'c': case 'C': chronoToggle(); return;
+      case 'x': case 'X': chronoReset(); return;
+      case 'p': case 'P': E.planToggle && E.planToggle(); return;
     }
+    if (E.plan.on) return;
+    const z = E.cam.tz;
+    switch (k) {
+      case '+': case '=': E.cam.tz = E.clamp(z * 1.18, 1, 5); break;
+      case '-': E.cam.tz = E.clamp(z / 1.18, 1, 5); break;
+      case '0': E.cam.tz = 1; E.cam.tx = 0; E.cam.ty = 0; break;
+      case 'ArrowUp': E.cam.ty -= PAN / z; break;
+      case 'ArrowDown': E.cam.ty += PAN / z; break;
+      case 'ArrowLeft': E.cam.tx -= PAN / z; break;
+      case 'ArrowRight': E.cam.tx += PAN / z; break;
+      default: return;
+    }
+    clampCam();
+    E.render.wake();
+    clearTimeout(E._zoomSayT);
+    E._zoomSayT = setTimeout(() => E.say(`Zoom ${E.cam.tz.toFixed(1)}×.`), 500);
   });
 })();

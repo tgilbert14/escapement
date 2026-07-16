@@ -127,7 +127,7 @@ E.forge = (() => {
 
   /* a toothed wheel sprite: rim, teeth, face, crescent spoke cutouts, arbor */
   function bakeWheel(spec) {
-    const { r, teeth, spokes, style, pinion, px } = spec;
+    const { r, teeth, spokes, style, pinion, px, leaves = 8 } = spec;
     const pad = 6;
     const S = Math.ceil((r + pad) * 2 * px);
     const c = cvs(S, S), ctx = c.getContext('2d');
@@ -189,7 +189,6 @@ E.forge = (() => {
       ctx.strokeStyle = 'rgba(0,0,0,.4)'; ctx.lineWidth = 1; ctx.stroke();
       /* pinion leaves */
       ctx.strokeStyle = 'rgba(0,0,0,.28)'; ctx.lineWidth = 1.4;
-      const leaves = 8;
       for (let i = 0; i < leaves; i++) {
         const a = (i / leaves) * TAU;
         ctx.beginPath(); ctx.moveTo(Math.cos(a) * pinion * .35, Math.sin(a) * pinion * .35);
@@ -210,11 +209,12 @@ E.forge = (() => {
     ctx.beginPath();
     const n = 15;
     for (let i = 0; i < n; i++) {
+      /* rake mirrored: the wheel now turns clockwise-negative against the fourth */
       const a = (i / n) * TAU;
-      const tip = a, heel = a + 0.16, root = a + (TAU / n) * .55;
-      ctx.lineTo(Math.cos(tip) * (r + 7), Math.sin(tip) * (r + 7));
-      ctx.lineTo(Math.cos(heel) * (r + 2), Math.sin(heel) * (r + 2));
+      const tip = a, heel = a - 0.16, root = a - (TAU / n) * .55;
       ctx.lineTo(Math.cos(root) * (r * .8), Math.sin(root) * (r * .8));
+      ctx.lineTo(Math.cos(heel) * (r + 2), Math.sin(heel) * (r + 2));
+      ctx.lineTo(Math.cos(tip) * (r + 7), Math.sin(tip) * (r + 7));
     }
     ctx.closePath();
     ctx.fillStyle = metal(ctx, r, '#c9b078', '#f4e3b0', '#6d5426');
@@ -355,7 +355,7 @@ E.forge = (() => {
     }
 
     /* engravings */
-    engravedArc(ctx, 'DESERT DATA LABS', 0, 0, 448, Math.PI * .5 + .62, Math.PI * .5 - .62, 21, 'rgba(232,226,212,.42)', true);
+    engravedArc(ctx, 'DESERT DATA LABS', 0, 0, 422, Math.PI * .5 + .62, Math.PI * .5 - .62, 21, 'rgba(232,226,212,.42)', true);
     engravedArc(ctx, 'CAL. DDL-1 · 18000 A/H · 23 JEWELS', 0, 0, 428, -Math.PI * .5 - .58, -Math.PI * .5 + .58, 16, 'rgba(200,160,90,.62)', false);
 
     /* power reserve track along the west rim */
@@ -509,7 +509,7 @@ E.forge = (() => {
   }
 
   function bakeMoonDisc(px) {
-    const r = 86, pad = 4;
+    const r = 118, pad = 4; /* sized so the moons ride the SAME radius as the cover aperture */
     const S = Math.ceil((r + pad) * 2 * px);
     const c = cvs(S, S), ctx = c.getContext('2d');
     ctx.translate(S / 2, S / 2); ctx.scale(px, px);
@@ -525,11 +525,11 @@ E.forge = (() => {
       ctx.beginPath(); ctx.arc(Math.cos(a) * d, Math.sin(a) * d, .9 + rr() * 1.3, 0, TAU); ctx.fill();
     }
     for (const s of [1, -1]) {
-      ctx.save(); ctx.translate(0, s * r * .56);
-      const mg = ctx.createRadialGradient(-6, -7, 2, 0, 0, 24);
+      ctx.save(); ctx.translate(0, s * 74);
+      const mg = ctx.createRadialGradient(-7, -8, 2, 0, 0, 27);
       mg.addColorStop(0, '#fdf6dd'); mg.addColorStop(1, '#cfb264');
       ctx.fillStyle = mg;
-      ctx.beginPath(); ctx.arc(0, 0, 23, 0, TAU); ctx.fill();
+      ctx.beginPath(); ctx.arc(0, 0, 26, 0, TAU); ctx.fill();
       /* a quiet face: two craters */
       ctx.fillStyle = 'rgba(140,110,50,.4)';
       ctx.beginPath(); ctx.arc(-7, -3, 3.6, 0, TAU); ctx.fill();
@@ -560,13 +560,13 @@ E.forge = (() => {
       ctx.lineTo(Math.cos(a) * face, Math.sin(a) * face); ctx.stroke();
     }
     ctx.restore();
-    /* moon aperture: a fat crescent-topped window, NNE of center */
+    /* moon aperture: a round window at the exact radius the disc's moons ride */
     ctx.save();
     ctx.globalCompositeOperation = 'destination-out';
-    ctx.beginPath(); ctx.arc(0, -r * .56, 27, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.arc(0, -74, 26, 0, TAU); ctx.fill();
     ctx.restore();
     ctx.strokeStyle = 'rgba(240,217,162,.7)'; ctx.lineWidth = 2.4;
-    ctx.beginPath(); ctx.arc(0, -r * .56, 27, 0, TAU); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, -74, 26, 0, TAU); ctx.stroke();
     /* ratchet wheel at center (spins while winding) is drawn live; leave a seat */
     ctx.fillStyle = 'rgba(0,0,0,.35)';
     ctx.beginPath(); ctx.arc(0, 0, 46, 0, TAU); ctx.fill();
@@ -669,39 +669,55 @@ E.forge = (() => {
     return { c, r: R + pad, px };
   }
 
-  /* ---------- bake set + rebake on zoom tier change ---------- */
-  const sprites = {};
-  let bakedTier = 0;
+  /* ---------- bake set: capped pixels, cached per tier, hysteretic swap ----------
+     E.baseScale is DEVICE px per world unit (it already includes DPR), so it is
+     the ONLY scale factor here — multiplying by DPR again was the old bug.
+     Absolute pixel caps keep the four plate-class sprites under iOS canvas
+     limits on any display. A tier is built once and kept until resize. */
+  const tiers = {};
+  let current = null, bakedTier = 0;
+  const CAP_FLAT = 2800, CAP_WHEEL = 1400;
+  const capped = (units, s, cap) => Math.min(s, cap / units);
+
+  function buildSet(tier) {
+    const base = (E.baseScale || .5);
+    const flat = capped(1040, base * tier, CAP_FLAT);
+    const w = (units) => capped(units, base * Math.min(tier * 1.4, 3), CAP_WHEEL);
+    const set = {};
+    set.plate = bakePlate(flat);
+    set.bridges = bakeBridges(flat);
+    set.furniture = bakeFurniture(flat);
+    set.gongs = bakeGongs(flat);
+    set.centerW = bakeWheel({ r: L.center.r, teeth: 80, spokes: 5, style: 'brass', pinion: L.center.pinion, leaves: 16, px: w(292) });
+    set.thirdW = bakeWheel({ r: L.third.r, teeth: 75, spokes: 4, style: 'brass', pinion: L.third.pinion, leaves: 10, px: w(222) });
+    set.fourthW = bakeWheel({ r: L.fourth.r, teeth: 80, spokes: 4, style: 'brass', pinion: L.fourth.pinion, leaves: 10, px: w(192) });
+    set.hourW = bakeWheel({ r: 78, teeth: 60, spokes: 4, style: 'brass', pinion: 0, px: w(168) });
+    set.escapeW = bakeEscape(w(120));
+    set.balance = bakeBalance(w(270));
+    set.fork = bakeFork(w(208));
+    set.barrel = bakeBarrel(w(316));
+    set.moon = bakeMoonDisc(w(244));
+    set.cover = bakeBarrelCover(w(316));
+    set.ratchet = bakeRatchet(w(92));
+    set.cock = bakeCock(w(540));
+    return set;
+  }
+
   function bake(tier) {
-    const px = Math.min(E.view.px * tier, 4);
-    sprites.plate = bakePlate(Math.min(px, 2.5) * (E.baseScale || .5));
-    sprites.bridges = bakeBridges(Math.min(px, 2.5) * (E.baseScale || .5));
-    sprites.furniture = bakeFurniture(Math.min(px, 2.5) * (E.baseScale || .5));
-    sprites.gongs = bakeGongs(Math.min(px, 2.5) * (E.baseScale || .5));
-    const s = (E.baseScale || .5) * px;
-    sprites.centerW = bakeWheel({ r: L.center.r, teeth: 80, spokes: 5, style: 'brass', pinion: L.center.pinion, px: s });
-    sprites.thirdW = bakeWheel({ r: L.third.r, teeth: 75, spokes: 4, style: 'brass', pinion: L.third.pinion, px: s });
-    sprites.fourthW = bakeWheel({ r: L.fourth.r, teeth: 80, spokes: 4, style: 'brass', pinion: L.fourth.pinion, px: s });
-    sprites.hourW = bakeWheel({ r: 78, teeth: 60, spokes: 4, style: 'brass', pinion: 0, px: s });
-    sprites.escapeW = bakeEscape(s);
-    sprites.balance = bakeBalance(s);
-    sprites.fork = bakeFork(s);
-    sprites.barrel = bakeBarrel(s);
-    sprites.moon = bakeMoonDisc(s);
-    sprites.cover = bakeBarrelCover(s);
-    sprites.ratchet = bakeRatchet(s);
-    sprites.cock = bakeCock(s);
+    tiers[tier] = buildSet(tier);
+    current = tiers[tier];
     bakedTier = tier;
   }
+  function rebake() { for (const k in tiers) delete tiers[k]; bake(bakedTier || 1); }
 
-  function rebake() { bake(bakedTier || 1); }
-
-  /* pick a sharper tier when the camera settles zoomed-in */
-  function tierFor(z) { return z > 2.2 ? 2.5 : 1; }
+  /* hysteresis: sharpen past 2.4, soften below 1.9 — no ping-pong at the line */
   function maybeRetier() {
-    const t = tierFor(E.cam.z);
-    if (t !== bakedTier) bake(t);
+    const t = E.cam.z > 2.4 ? 2.5 : (E.cam.z < 1.9 ? 1 : bakedTier);
+    if (t === bakedTier) return;
+    if (!tiers[t]) tiers[t] = buildSet(t);
+    current = tiers[t];
+    bakedTier = t;
   }
 
-  return { L, sprites, bake, rebake, maybeRetier };
+  return { L, get sprites() { return current; }, bake, rebake, maybeRetier };
 })();

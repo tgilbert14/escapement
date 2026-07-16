@@ -50,8 +50,8 @@ E.resize = () => {
   E.cv.width = w; E.cv.height = h;
   E.view = { w: r.width, h: r.height, px };
   E.baseScale = (Math.min(w, h) / 2) / E.R; /* world fits the circle at z=1 */
-  if (E.forge && E.forge.rebake) E.forge.rebake();
-  E.ticker.kick();
+  if (E.forge && E.forge.sprites) E.forge.rebake(); /* only rebake what was baked */
+  if (E.render) E.render.wake(); else E.ticker.kick(); /* a parked loop must repaint */
 };
 addEventListener('resize', () => { clearTimeout(E._rzT); E._rzT = setTimeout(E.resize, 120); });
 

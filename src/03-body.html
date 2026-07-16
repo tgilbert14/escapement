@@ -1,4 +1,4 @@
-<a class="sr-only" href="#deck">Skip to controls</a>
+<a class="sr-only skip" href="#deck">Skip to controls</a>
 
 <header class="masthead">
   <p class="eyebrow">Desert Data Labs</p>
@@ -9,15 +9,16 @@
 <main class="room">
   <div class="case" id="case">
     <canvas id="movement" aria-hidden="true"></canvas>
-    <button id="crown" class="ctl ctl-crown" aria-label="Winding crown. Hold to wind the mainspring."></button>
-    <button id="slide" class="ctl ctl-slide" aria-label="Repeater slide. Chimes the current time on gongs."></button>
-    <button id="push-a" class="ctl ctl-push a" aria-label="Chronograph start and stop"></button>
-    <button id="push-b" class="ctl ctl-push b" aria-label="Chronograph reset"></button>
+    <!-- controls ship disabled: without JS they leave the tab order to the brochure -->
+    <button id="crown" class="ctl ctl-crown" disabled aria-label="Winding crown. Hold to wind the mainspring."></button>
+    <button id="slide" class="ctl ctl-slide" disabled aria-label="Repeater slide. Chimes the current time on gongs."></button>
+    <button id="push-a" class="ctl ctl-push a" disabled aria-pressed="false" aria-label="Chronograph start and stop"></button>
+    <button id="push-b" class="ctl ctl-push b" disabled aria-label="Chronograph reset"></button>
   </div>
 
   <nav class="deck" id="deck" aria-label="Views and sound">
-    <button id="plan-toggle" aria-pressed="false">Plan</button>
-    <button id="sound-toggle" aria-pressed="false">Sound</button>
+    <button id="plan-toggle" disabled aria-pressed="false">Plan</button>
+    <button id="sound-toggle" disabled aria-pressed="false">Sound</button>
   </nav>
 
   <p class="sr-only" role="status" aria-live="polite" id="sr-status"></p>

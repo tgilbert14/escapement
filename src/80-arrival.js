@@ -14,6 +14,9 @@
 
     E.render.boot();
 
+    /* the engine is alive: hand the controls over */
+    document.querySelectorAll('.ctl, .deck button').forEach(b => { b.disabled = false; });
+
     if (!E.rm.matches) {
       let done = false;
       const land = () => {
