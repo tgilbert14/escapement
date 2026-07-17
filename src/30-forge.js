@@ -57,6 +57,7 @@ E.forge = (() => {
       ['barrel', 96, L.barrelP, 'center', 16, L.centerP],
       ['center', 80, L.centerP, 'third', 10, L.thirdP],
       ['third', 75, L.thirdP, 'fourth', 10, L.fourthP],
+      ['fourth', 80, L.fourthP, 'escape', 8, L.escapeP], /* the most-watched mesh in the room */
     ];
     for (const [a, NA, PA, b, LB, PB] of pairs) {
       const alphaA = Math.atan2(PB[1] - PA[1], PB[0] - PA[0]);
@@ -254,6 +255,16 @@ E.forge = (() => {
       ctx.beginPath(); ctx.moveTo(Math.cos(a) * r * .1, Math.sin(a) * r * .1);
       ctx.lineTo(Math.cos(a) * r * .78, Math.sin(a) * r * .78); ctx.stroke();
     }
+    /* the escape pinion: eight steel leaves the fourth wheel actually drives */
+    ctx.fillStyle = metal(ctx, L.escape.pinion, '#9aa3ad', '#dfe6ee', '#4b5157');
+    ctx.beginPath(); ctx.arc(0, 0, L.escape.pinion, 0, TAU); ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,.4)'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.strokeStyle = 'rgba(0,0,0,.3)'; ctx.lineWidth = 1.6;
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * TAU;
+      ctx.beginPath(); ctx.moveTo(Math.cos(a) * L.escape.pinion * .3, Math.sin(a) * L.escape.pinion * .3);
+      ctx.lineTo(Math.cos(a) * L.escape.pinion * .95, Math.sin(a) * L.escape.pinion * .95); ctx.stroke();
+    }
     ctx.fillStyle = '#22252b';
     ctx.beginPath(); ctx.arc(0, 0, 3.4, 0, TAU); ctx.fill();
     return { c, r: r + pad, px };
@@ -293,30 +304,36 @@ E.forge = (() => {
     return { c, r: r + pad, px };
   }
 
-  /* pallet fork sprite (drawn pointing +y toward the escape wheel) */
+  /* pallet fork sprite (drawn pointing +y toward the escape wheel).
+     TRUE ANATOMY: the pivot sits just outside the escape wheel, so the
+     pallet frame straddles the top of the wheel — stones one tooth-pitch
+     apart (~22 units at r52), reaching INTO the tooth circle so the lock
+     actually reads at the hero zoom. The body runs the other way to the
+     horns that catch the balance's impulse jewel. */
   function bakeFork(px) {
-    const len = 78, pad = 26;
+    const len = 78, pad = 30;
     const S = Math.ceil((len + pad) * 2 * px);
     const c = cvs(S, S), ctx = c.getContext('2d');
     ctx.translate(S / 2, S / 2); ctx.scale(px, px);
     ctx.strokeStyle = metal(ctx, len, '#9aa3ad', '#dfe6ee', '#4b5157');
-    ctx.lineWidth = 9; ctx.lineCap = 'round';
-    /* the stem: pivot at origin; horns toward -y (balance); pallets toward +y (escape) */
-    ctx.beginPath(); ctx.moveTo(0, -len * .48); ctx.lineTo(0, len * .58); ctx.stroke();
-    /* fork horns */
-    ctx.lineWidth = 6;
-    ctx.beginPath(); ctx.moveTo(0, -len * .48); ctx.lineTo(-11, -len * .78); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(0, -len * .48); ctx.lineTo(11, -len * .78); ctx.stroke();
-    /* pallet arms + ruby pallet stones */
+    ctx.lineCap = 'round';
+    /* the stem toward the balance (−y), ending in the horns */
     ctx.lineWidth = 8;
-    ctx.beginPath(); ctx.moveTo(0, len * .58); ctx.lineTo(-30, len * .82); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(0, len * .58); ctx.lineTo(26, len * .86); ctx.stroke();
-    for (const [x, y, a] of [[-33, len * .86, .6], [29, len * .9, -.6]]) {
+    ctx.beginPath(); ctx.moveTo(0, 6); ctx.lineTo(0, -len * .62); ctx.stroke();
+    ctx.lineWidth = 5.5;
+    ctx.beginPath(); ctx.moveTo(0, -len * .62); ctx.lineTo(-10, -len * .88); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, -len * .62); ctx.lineTo(10, -len * .88); ctx.stroke();
+    /* the pallet frame: a shallow anchor straddling the wheel top */
+    ctx.lineWidth = 7;
+    ctx.beginPath(); ctx.moveTo(-15, 14); ctx.lineTo(0, 6); ctx.lineTo(14, 16); ctx.stroke();
+    /* ruby stones angled like real entry/exit pallets, tips reaching into
+       the tooth circle (escape center is 75 below the pivot; teeth at 45-59) */
+    for (const [x, y, a] of [[-17, 21, 0.52], [16, 23, -0.38]]) {
       ctx.save(); ctx.translate(x, y); ctx.rotate(a);
       ctx.fillStyle = '#c23049';
-      ctx.fillRect(-3.6, -7, 7.2, 14);
+      ctx.fillRect(-3.4, -4, 6.8, 15);
       ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 1;
-      ctx.strokeRect(-3.6, -7, 7.2, 14);
+      ctx.strokeRect(-3.4, -4, 6.8, 15);
       ctx.restore();
     }
     ctx.fillStyle = '#22252b';

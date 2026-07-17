@@ -207,7 +207,7 @@ E.render = (() => {
     drawSprite(ctx, F().centerW, 0, 0, A.center + PH.center, lift(2));
     drawSprite(ctx, F().thirdW, L().thirdP[0], L().thirdP[1], A.third + PH.third, lift(2));
     drawSprite(ctx, F().fourthW, L().fourthP[0], L().fourthP[1], A.seconds + PH.fourth, lift(2));
-    drawSprite(ctx, F().escapeW, L().escapeP[0], L().escapeP[1], A.escape, lift(2));
+    drawSprite(ctx, F().escapeW, L().escapeP[0], L().escapeP[1], A.escape + PH.escape, lift(2));
 
     /* ---- 3 gongs + hammers ---- */
     drawSprite(ctx, F().gongs, 0, 0, 0, lift(3));

@@ -17,15 +17,26 @@
   };
   btn.addEventListener('click', E.planToggle);
 
-  /* ---------- the caseback legend ---------- */
+  /* ---------- the caseback legend: a real dialog, focus held and returned ---------- */
   const legendBtn = document.getElementById('legend-toggle');
   const legend = document.getElementById('legend');
   const legendClose = document.getElementById('legend-close');
-  E.showLegend = (open) => {
+  let legendReturn = null;
+  E.showLegend = (open, stealFocus = true) => {
     legend.hidden = !open;
     legendBtn.setAttribute('aria-expanded', String(open));
-    if (open) legendClose.focus();
+    if (open) {
+      legendReturn = document.activeElement;
+      if (stealFocus) legendClose.focus();
+    } else if (legendReturn && legendReturn.focus) {
+      legendReturn.focus();
+      legendReturn = null;
+    }
   };
+  legend.addEventListener('keydown', (e) => {
+    if (e.key === 'Tab') { e.preventDefault(); legendClose.focus(); } /* one tabbable: a loop of one */
+  });
+  legend.addEventListener('click', (e) => { if (e.target === legend) E.showLegend(false); });
   legendBtn.addEventListener('click', () => E.showLegend(legend.hidden));
   legendClose.addEventListener('click', () => E.showLegend(false));
   addEventListener('keydown', (e) => { if (e.key === 'Escape' && !legend.hidden) E.showLegend(false); });

@@ -43,7 +43,7 @@ sound → interact → plan → arrival. The build fails loudly if any `__PLACEH
 
 ## House rules it honors
 
-- THE JOURNEY IS VISUAL. The room holds one headline and two chips; everything else is metal.
+- THE JOURNEY IS VISUAL. The room holds one headline and three chips; everything else is metal — even the legend is caseback engraving.
 - Real math everywhere: mesh distances are solved from pitch-circle tangency, wheel rates from
   the true train ratios, the moon from the synodic month, the repeater from the display clock.
 - No JS = a complete brochure (static movement SVG + one line). Reduced motion = no camera

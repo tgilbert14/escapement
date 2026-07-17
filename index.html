@@ -355,7 +355,7 @@ body.arriving .masthead, body.arriving .deck { opacity: 0; }
     <button id="sound-toggle" disabled aria-pressed="false">Sound</button>
   </nav>
 
-  <section class="legend" id="legend" aria-label="Caseback legend" hidden>
+  <section class="legend" id="legend" role="dialog" aria-modal="true" aria-label="Caseback legend" hidden>
     <div class="plate">
       <h2>The Escapement</h2>
       <p class="what">A mechanical watch the size of a room, keeping your actual time through a real gear train.</p>
@@ -653,43 +653,54 @@ E.time = (() => {
     return T.reserve - before; /* how much actually took (0 at full wind) */
   }
 
-  /* ---- angles (radians) for every rotating part, from the display clock ---- */
+  /* ---- angles (radians) for every rotating part, from the display clock ----
+     THE WHOLE TRAIN IS STEPPED. In a real watch nothing glides: the escapement
+     releases the entire gear train five times a second, so the center wheel
+     jumps exactly like the escape wheel does — just 600 times smaller. Every
+     wheel quantizes to the same tick grid with the same settle curve, which
+     keeps every mesh phase-true at every instant. */
   function angles() {
     const ms = dispMs();
-    const tick = Math.floor(ms / BEAT);
     const tIn = (ms % BEAT) / BEAT;                 /* 0..1 inside the beat */
-    /* stepped advance with a fast settle (the wheel lands, it doesn't glide) */
-    const settle = Math.min(1, tIn * 6);
-    const stepped = (stepsPerRev) => E.TAU * ((tick % stepsPerRev) + settle * (T.phase !== 'stop' ? 1 : 0)) / stepsPerRev;
+    /* the settle: the train lands within the first sixth of the beat */
+    const settle = Math.min(1, tIn * 6) * (T.phase !== 'stop' ? 1 : 0);
 
-    const running = T.phase !== 'stop';
+    const rm = E.rm.matches;
     const d = new Date(ms);
     const secOfDay = d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds() + d.getMilliseconds() / 1000;
+    /* one revolution per `period` seconds, advanced on the 200ms tick grid */
+    const q = (period) => {
+      const steps = period * 5;
+      const k = Math.floor((secOfDay * 5) % steps);
+      return E.TAU * (k + settle) / steps;
+    };
 
     /* balance: sinusoid on the 400ms period, ticks at the zero crossings.
        Reduced motion: the balance holds its pose and the seconds hand steps
        once a second — the movement is composed, not stripped. */
-    const rm = E.rm.matches;
     const phase = (ms % (BEAT * 2)) / (BEAT * 2);
     const balance = rm ? 0 : Math.sin(phase * E.TAU) * 2.4 * T.amp; /* ±137° at full amplitude */
-    /* pallet fork: square-ish wave with soft corners, ±10° */
-    const fork = rm ? 0 : Math.tanh(Math.sin(phase * E.TAU) * 6) * 0.17 * (T.amp > 0.05 ? 1 : 0);
+    /* pallet fork: alternates pallets each tick; the swap happens in the
+       drop window right after the release */
+    const tickParity = Math.floor(ms / BEAT) % 2 === 0 ? 1 : -1;
+    const forkSwing = rm ? 0 : (T.amp > 0.05 ? 1 : 0);
+    const fork = forkSwing * tickParity * (tIn < 0.14 ? -1 + 2 * (tIn / 0.14) : 1) * 0.155;
 
     return {
       balance, fork,
       /* escape turns AGAINST the fourth wheel — meshed metal, opposite spins */
-      escape: -(running ? stepped(30) : E.TAU * (lastTicks % 30) / 30),
-      third:  -E.TAU * ((secOfDay % 450) / 450),
-      center: E.TAU * ((secOfDay % 3600) / 3600),           /* minute */
-      hour:   E.TAU * ((secOfDay % 43200) / 43200),
-      barrel: -E.TAU * ((secOfDay % 21600) / 21600),        /* 1 rev / 6h */
+      escape: -q(6),
+      third:  -q(450),
+      center: q(3600),           /* minute */
+      hour:   q(43200),
+      barrel: -q(21600),        /* 1 rev / 6h */
       /* the disc turns half a revolution per synodic month; the quarter-turn
          offset centers a moon in the aperture at FULL moon (age = half month) */
       moon:   E.TAU * (((ms / 86400000 - NEWMOON) / SYNODIC) % 1) / 2 + Math.PI / 2,
       chronoSec: E.TAU * ((T.chrono.ms % 60000) / 60000),
       chronoMin: E.TAU * ((T.chrono.ms % 1800000) / 1800000),
       reserve: T.reserve,
-      seconds: rm ? E.TAU * Math.floor(secOfDay % 60) / 60 : stepped(300), /* rm: 1 step/s */
+      seconds: rm ? E.TAU * Math.floor(secOfDay % 60) / 60 : q(60),
       secOfDay,
     };
   }
@@ -773,6 +784,7 @@ E.forge = (() => {
       ['barrel', 96, L.barrelP, 'center', 16, L.centerP],
       ['center', 80, L.centerP, 'third', 10, L.thirdP],
       ['third', 75, L.thirdP, 'fourth', 10, L.fourthP],
+      ['fourth', 80, L.fourthP, 'escape', 8, L.escapeP], /* the most-watched mesh in the room */
     ];
     for (const [a, NA, PA, b, LB, PB] of pairs) {
       const alphaA = Math.atan2(PB[1] - PA[1], PB[0] - PA[0]);
@@ -970,6 +982,16 @@ E.forge = (() => {
       ctx.beginPath(); ctx.moveTo(Math.cos(a) * r * .1, Math.sin(a) * r * .1);
       ctx.lineTo(Math.cos(a) * r * .78, Math.sin(a) * r * .78); ctx.stroke();
     }
+    /* the escape pinion: eight steel leaves the fourth wheel actually drives */
+    ctx.fillStyle = metal(ctx, L.escape.pinion, '#9aa3ad', '#dfe6ee', '#4b5157');
+    ctx.beginPath(); ctx.arc(0, 0, L.escape.pinion, 0, TAU); ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,.4)'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.strokeStyle = 'rgba(0,0,0,.3)'; ctx.lineWidth = 1.6;
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * TAU;
+      ctx.beginPath(); ctx.moveTo(Math.cos(a) * L.escape.pinion * .3, Math.sin(a) * L.escape.pinion * .3);
+      ctx.lineTo(Math.cos(a) * L.escape.pinion * .95, Math.sin(a) * L.escape.pinion * .95); ctx.stroke();
+    }
     ctx.fillStyle = '#22252b';
     ctx.beginPath(); ctx.arc(0, 0, 3.4, 0, TAU); ctx.fill();
     return { c, r: r + pad, px };
@@ -1009,30 +1031,36 @@ E.forge = (() => {
     return { c, r: r + pad, px };
   }
 
-  /* pallet fork sprite (drawn pointing +y toward the escape wheel) */
+  /* pallet fork sprite (drawn pointing +y toward the escape wheel).
+     TRUE ANATOMY: the pivot sits just outside the escape wheel, so the
+     pallet frame straddles the top of the wheel — stones one tooth-pitch
+     apart (~22 units at r52), reaching INTO the tooth circle so the lock
+     actually reads at the hero zoom. The body runs the other way to the
+     horns that catch the balance's impulse jewel. */
   function bakeFork(px) {
-    const len = 78, pad = 26;
+    const len = 78, pad = 30;
     const S = Math.ceil((len + pad) * 2 * px);
     const c = cvs(S, S), ctx = c.getContext('2d');
     ctx.translate(S / 2, S / 2); ctx.scale(px, px);
     ctx.strokeStyle = metal(ctx, len, '#9aa3ad', '#dfe6ee', '#4b5157');
-    ctx.lineWidth = 9; ctx.lineCap = 'round';
-    /* the stem: pivot at origin; horns toward -y (balance); pallets toward +y (escape) */
-    ctx.beginPath(); ctx.moveTo(0, -len * .48); ctx.lineTo(0, len * .58); ctx.stroke();
-    /* fork horns */
-    ctx.lineWidth = 6;
-    ctx.beginPath(); ctx.moveTo(0, -len * .48); ctx.lineTo(-11, -len * .78); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(0, -len * .48); ctx.lineTo(11, -len * .78); ctx.stroke();
-    /* pallet arms + ruby pallet stones */
+    ctx.lineCap = 'round';
+    /* the stem toward the balance (−y), ending in the horns */
     ctx.lineWidth = 8;
-    ctx.beginPath(); ctx.moveTo(0, len * .58); ctx.lineTo(-30, len * .82); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(0, len * .58); ctx.lineTo(26, len * .86); ctx.stroke();
-    for (const [x, y, a] of [[-33, len * .86, .6], [29, len * .9, -.6]]) {
+    ctx.beginPath(); ctx.moveTo(0, 6); ctx.lineTo(0, -len * .62); ctx.stroke();
+    ctx.lineWidth = 5.5;
+    ctx.beginPath(); ctx.moveTo(0, -len * .62); ctx.lineTo(-10, -len * .88); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, -len * .62); ctx.lineTo(10, -len * .88); ctx.stroke();
+    /* the pallet frame: a shallow anchor straddling the wheel top */
+    ctx.lineWidth = 7;
+    ctx.beginPath(); ctx.moveTo(-15, 14); ctx.lineTo(0, 6); ctx.lineTo(14, 16); ctx.stroke();
+    /* ruby stones angled like real entry/exit pallets, tips reaching into
+       the tooth circle (escape center is 75 below the pivot; teeth at 45-59) */
+    for (const [x, y, a] of [[-17, 21, 0.52], [16, 23, -0.38]]) {
       ctx.save(); ctx.translate(x, y); ctx.rotate(a);
       ctx.fillStyle = '#c23049';
-      ctx.fillRect(-3.6, -7, 7.2, 14);
+      ctx.fillRect(-3.4, -4, 6.8, 15);
       ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 1;
-      ctx.strokeRect(-3.6, -7, 7.2, 14);
+      ctx.strokeRect(-3.4, -4, 6.8, 15);
       ctx.restore();
     }
     ctx.fillStyle = '#22252b';
@@ -1671,7 +1699,7 @@ E.render = (() => {
     drawSprite(ctx, F().centerW, 0, 0, A.center + PH.center, lift(2));
     drawSprite(ctx, F().thirdW, L().thirdP[0], L().thirdP[1], A.third + PH.third, lift(2));
     drawSprite(ctx, F().fourthW, L().fourthP[0], L().fourthP[1], A.seconds + PH.fourth, lift(2));
-    drawSprite(ctx, F().escapeW, L().escapeP[0], L().escapeP[1], A.escape, lift(2));
+    drawSprite(ctx, F().escapeW, L().escapeP[0], L().escapeP[1], A.escape + PH.escape, lift(2));
 
     /* ---- 3 gongs + hammers ---- */
     drawSprite(ctx, F().gongs, 0, 0, 0, lift(3));
@@ -2284,15 +2312,26 @@ E.sound = (() => {
   };
   btn.addEventListener('click', E.planToggle);
 
-  /* ---------- the caseback legend ---------- */
+  /* ---------- the caseback legend: a real dialog, focus held and returned ---------- */
   const legendBtn = document.getElementById('legend-toggle');
   const legend = document.getElementById('legend');
   const legendClose = document.getElementById('legend-close');
-  E.showLegend = (open) => {
+  let legendReturn = null;
+  E.showLegend = (open, stealFocus = true) => {
     legend.hidden = !open;
     legendBtn.setAttribute('aria-expanded', String(open));
-    if (open) legendClose.focus();
+    if (open) {
+      legendReturn = document.activeElement;
+      if (stealFocus) legendClose.focus();
+    } else if (legendReturn && legendReturn.focus) {
+      legendReturn.focus();
+      legendReturn = null;
+    }
   };
+  legend.addEventListener('keydown', (e) => {
+    if (e.key === 'Tab') { e.preventDefault(); legendClose.focus(); } /* one tabbable: a loop of one */
+  });
+  legend.addEventListener('click', (e) => { if (e.target === legend) E.showLegend(false); });
   legendBtn.addEventListener('click', () => E.showLegend(legend.hidden));
   legendClose.addEventListener('click', () => E.showLegend(false));
   addEventListener('keydown', (e) => { if (e.key === 'Escape' && !legend.hidden) E.showLegend(false); });

@@ -156,43 +156,54 @@ E.time = (() => {
     return T.reserve - before; /* how much actually took (0 at full wind) */
   }
 
-  /* ---- angles (radians) for every rotating part, from the display clock ---- */
+  /* ---- angles (radians) for every rotating part, from the display clock ----
+     THE WHOLE TRAIN IS STEPPED. In a real watch nothing glides: the escapement
+     releases the entire gear train five times a second, so the center wheel
+     jumps exactly like the escape wheel does — just 600 times smaller. Every
+     wheel quantizes to the same tick grid with the same settle curve, which
+     keeps every mesh phase-true at every instant. */
   function angles() {
     const ms = dispMs();
-    const tick = Math.floor(ms / BEAT);
     const tIn = (ms % BEAT) / BEAT;                 /* 0..1 inside the beat */
-    /* stepped advance with a fast settle (the wheel lands, it doesn't glide) */
-    const settle = Math.min(1, tIn * 6);
-    const stepped = (stepsPerRev) => E.TAU * ((tick % stepsPerRev) + settle * (T.phase !== 'stop' ? 1 : 0)) / stepsPerRev;
+    /* the settle: the train lands within the first sixth of the beat */
+    const settle = Math.min(1, tIn * 6) * (T.phase !== 'stop' ? 1 : 0);
 
-    const running = T.phase !== 'stop';
+    const rm = E.rm.matches;
     const d = new Date(ms);
     const secOfDay = d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds() + d.getMilliseconds() / 1000;
+    /* one revolution per `period` seconds, advanced on the 200ms tick grid */
+    const q = (period) => {
+      const steps = period * 5;
+      const k = Math.floor((secOfDay * 5) % steps);
+      return E.TAU * (k + settle) / steps;
+    };
 
     /* balance: sinusoid on the 400ms period, ticks at the zero crossings.
        Reduced motion: the balance holds its pose and the seconds hand steps
        once a second — the movement is composed, not stripped. */
-    const rm = E.rm.matches;
     const phase = (ms % (BEAT * 2)) / (BEAT * 2);
     const balance = rm ? 0 : Math.sin(phase * E.TAU) * 2.4 * T.amp; /* ±137° at full amplitude */
-    /* pallet fork: square-ish wave with soft corners, ±10° */
-    const fork = rm ? 0 : Math.tanh(Math.sin(phase * E.TAU) * 6) * 0.17 * (T.amp > 0.05 ? 1 : 0);
+    /* pallet fork: alternates pallets each tick; the swap happens in the
+       drop window right after the release */
+    const tickParity = Math.floor(ms / BEAT) % 2 === 0 ? 1 : -1;
+    const forkSwing = rm ? 0 : (T.amp > 0.05 ? 1 : 0);
+    const fork = forkSwing * tickParity * (tIn < 0.14 ? -1 + 2 * (tIn / 0.14) : 1) * 0.155;
 
     return {
       balance, fork,
       /* escape turns AGAINST the fourth wheel — meshed metal, opposite spins */
-      escape: -(running ? stepped(30) : E.TAU * (lastTicks % 30) / 30),
-      third:  -E.TAU * ((secOfDay % 450) / 450),
-      center: E.TAU * ((secOfDay % 3600) / 3600),           /* minute */
-      hour:   E.TAU * ((secOfDay % 43200) / 43200),
-      barrel: -E.TAU * ((secOfDay % 21600) / 21600),        /* 1 rev / 6h */
+      escape: -q(6),
+      third:  -q(450),
+      center: q(3600),           /* minute */
+      hour:   q(43200),
+      barrel: -q(21600),        /* 1 rev / 6h */
       /* the disc turns half a revolution per synodic month; the quarter-turn
          offset centers a moon in the aperture at FULL moon (age = half month) */
       moon:   E.TAU * (((ms / 86400000 - NEWMOON) / SYNODIC) % 1) / 2 + Math.PI / 2,
       chronoSec: E.TAU * ((T.chrono.ms % 60000) / 60000),
       chronoMin: E.TAU * ((T.chrono.ms % 1800000) / 1800000),
       reserve: T.reserve,
-      seconds: rm ? E.TAU * Math.floor(secOfDay % 60) / 60 : stepped(300), /* rm: 1 step/s */
+      seconds: rm ? E.TAU * Math.floor(secOfDay % 60) / 60 : q(60),
       secOfDay,
     };
   }
