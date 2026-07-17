@@ -203,7 +203,11 @@
     const k = e.key;
     if (e.repeat && !['w', 'W', '+', '=', '-', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(k)) return;
     switch (k) {
-      case 'w': case 'W': windOnce(); return;
+      case 'w': case 'W':
+        windOnce();
+        clearTimeout(E._windSayT);
+        E._windSayT = setTimeout(announceReserve, 650); /* bare-key winders hear the reserve too */
+        return;
       case 'r': case 'R': E.sound.repeater(); return;
       case 'c': case 'C': chronoToggle(); return;
       case 'x': case 'X': chronoReset(); return;

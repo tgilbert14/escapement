@@ -7,7 +7,7 @@
    The tick is scheduled on the AUDIO clock against the movement's 200ms
    grid, so what you hear is what the balance does. */
 E.sound = (() => {
-  let ctx = null, master = null, comp = null, tickBus = null;
+  let ctx = null, master = null, comp = null, tickBus = null, gongBus = null;
   let enabled = E.store.get('sound', true);   /* intent; hardware may still be off */
   let repeaterEndsAt = 0;                     /* audio-clock time the chime owns */
   let lastHourStruck = -1, pendingHour = null;
@@ -25,6 +25,17 @@ E.sound = (() => {
     tickBus = ctx.createGain();
     tickBus.gain.value = 1;
     tickBus.connect(master);
+    /* the case body: gongs ring into a short damped reflection so they
+       sound struck inside a watch, not in a void */
+    gongBus = ctx.createGain();
+    gongBus.gain.value = 1;
+    gongBus.connect(master);
+    const body = ctx.createDelay(0.1); body.delayTime.value = 0.043;
+    const bodyFb = ctx.createGain(); bodyFb.gain.value = 0.32;
+    const bodyLp = ctx.createBiquadFilter(); bodyLp.type = 'lowpass'; bodyLp.frequency.value = 2600;
+    gongBus.connect(body); body.connect(bodyLp).connect(bodyFb).connect(body);
+    const bodyOut = ctx.createGain(); bodyOut.gain.value = 0.5;
+    bodyLp.connect(bodyOut).connect(master);
     document.addEventListener('visibilitychange', () => {
       if (!ctx) return;
       if (document.hidden) {
@@ -95,11 +106,11 @@ E.sound = (() => {
       o.type = 'sine';
       o.frequency.value = f0 * ratio * (1 + (Math.random() - .5) * 0.0015);
       const peak = 0.22 * amp * vel;
-      const decay = 3.2 / Math.sqrt(ratio);
+      const decay = (ratio === 1 ? 4.1 : 3.2) / Math.sqrt(ratio);
       g.gain.setValueAtTime(0.0001, when);
       g.gain.exponentialRampToValueAtTime(peak, when + 0.004);
       g.gain.exponentialRampToValueAtTime(0.0001, when + decay);
-      o.connect(g).connect(master);
+      o.connect(g).connect(gongBus);
       o.start(when); o.stop(when + decay + 0.1);
     }
     /* strike */
@@ -111,7 +122,7 @@ E.sound = (() => {
     const bp = ctx.createBiquadFilter();
     bp.type = 'bandpass'; bp.frequency.value = f0 * 4; bp.Q.value = 2;
     const g = ctx.createGain(); g.gain.value = 0.12 * vel;
-    n.connect(bp).connect(g).connect(master);
+    n.connect(bp).connect(g).connect(gongBus);
     n.start(when);
   }
 

@@ -45,6 +45,29 @@ E.forge = (() => {
     L.forkP    = [L.escapeP[0] + Math.cos(a) * 75,  L.escapeP[1] + Math.sin(a) * 75];
     L.balanceP = [L.forkP[0] + Math.cos(a) * 100,   L.forkP[1] + Math.sin(a) * 100];
   }
+  /* tooth-phase offsets: at midnight every train angle is exactly 0, so a
+     constant per-wheel twist makes teeth INTERLEAVE at each mesh point and,
+     because the drawn rates are the true ratios, they stay interleaved
+     forever. Solved pairwise down the chain: barrel teeth -> center pinion,
+     center teeth -> third pinion, third teeth -> fourth pinion. */
+  {
+    const frac = (x) => ((x % 1) + 1) % 1;
+    const d = { barrel: 0 };
+    const pairs = [
+      ['barrel', 96, L.barrelP, 'center', 16, L.centerP],
+      ['center', 80, L.centerP, 'third', 10, L.thirdP],
+      ['third', 75, L.thirdP, 'fourth', 10, L.fourthP],
+    ];
+    for (const [a, NA, PA, b, LB, PB] of pairs) {
+      const alphaA = Math.atan2(PB[1] - PA[1], PB[0] - PA[0]);
+      const alphaB = alphaA + Math.PI;
+      const fA = frac(((alphaA - d[a]) * NA) / TAU);
+      const fB = frac((alphaB * LB) / TAU);
+      d[b] = frac(fA + fB - 0.5) * TAU / LB;
+    }
+    L.phase = d;
+  }
+
   L.hourP   = [0, -228];    /* regulator hour ring, floating dial furniture */
   L.chronoP = [252, -6];    /* 30-minute counter */
   L.moonP   = L.barrelP;    /* moon lives in the barrel cover aperture */

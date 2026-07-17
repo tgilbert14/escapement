@@ -49,7 +49,9 @@ sound → interact → plan → arrival. The build fails loudly if any `__PLACEH
 - No JS = a complete brochure (static movement SVG + one line). Reduced motion = no camera
   flight, no glint loops; the movement holds a designed pose.
 - Every interaction is keyboard-reachable; the canvas is `aria-hidden` scenery; a polite live
-  region announces the time once a minute, winding state, and every repeater reading.
+  region announces arrival, winding state, chronograph state, and every repeater reading —
+  the repeater slide (or `R`) is the on-demand "what time is it," and it answers honestly
+  even with sound off.
 - The sound chip never claims ON until the AudioContext is truly running; an explicit opt-out
   is remembered; hidden tabs are silent. Ticks are scheduled on the audio clock against the
   movement's 200 ms grid.

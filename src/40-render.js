@@ -194,17 +194,19 @@ E.render = (() => {
 
     /* ---- 1 barrel + moon ---- */
     const BP = L().barrelP;
-    drawSprite(ctx, F().barrel, BP[0], BP[1], A.barrel, lift(1));
+    const PH = L().phase;
+    drawSprite(ctx, F().barrel, BP[0], BP[1], A.barrel + PH.barrel, lift(1));
     drawSprite(ctx, F().moon, BP[0], BP[1], A.moon, lift(1));
     drawSprite(ctx, F().cover, BP[0], BP[1], 0, lift(1));
+    /* the ratchet only turns when the crown turns it — a real click holds it */
     E.fx.ratchetSpin *= .92;
-    E.fx._ratchetA = (E.fx._ratchetA || 0) + E.fx.ratchetSpin * dt / 400 + (T.phase !== 'stop' ? dt / 90000 : 0);
+    E.fx._ratchetA = (E.fx._ratchetA || 0) + E.fx.ratchetSpin * dt / 400;
 
-    /* ---- 2 going train ---- */
+    /* ---- 2 going train (phase-twisted so meshing teeth interleave) ---- */
     drawSprite(ctx, F().hourW, L().hourP[0], L().hourP[1], A.hour, lift(2));
-    drawSprite(ctx, F().centerW, 0, 0, A.center, lift(2));
-    drawSprite(ctx, F().thirdW, L().thirdP[0], L().thirdP[1], A.third, lift(2));
-    drawSprite(ctx, F().fourthW, L().fourthP[0], L().fourthP[1], A.seconds, lift(2));
+    drawSprite(ctx, F().centerW, 0, 0, A.center + PH.center, lift(2));
+    drawSprite(ctx, F().thirdW, L().thirdP[0], L().thirdP[1], A.third + PH.third, lift(2));
+    drawSprite(ctx, F().fourthW, L().fourthP[0], L().fourthP[1], A.seconds + PH.fourth, lift(2));
     drawSprite(ctx, F().escapeW, L().escapeP[0], L().escapeP[1], A.escape, lift(2));
 
     /* ---- 3 gongs + hammers ---- */

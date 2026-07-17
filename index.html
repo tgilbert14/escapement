@@ -688,6 +688,29 @@ E.forge = (() => {
     L.forkP    = [L.escapeP[0] + Math.cos(a) * 75,  L.escapeP[1] + Math.sin(a) * 75];
     L.balanceP = [L.forkP[0] + Math.cos(a) * 100,   L.forkP[1] + Math.sin(a) * 100];
   }
+  /* tooth-phase offsets: at midnight every train angle is exactly 0, so a
+     constant per-wheel twist makes teeth INTERLEAVE at each mesh point and,
+     because the drawn rates are the true ratios, they stay interleaved
+     forever. Solved pairwise down the chain: barrel teeth -> center pinion,
+     center teeth -> third pinion, third teeth -> fourth pinion. */
+  {
+    const frac = (x) => ((x % 1) + 1) % 1;
+    const d = { barrel: 0 };
+    const pairs = [
+      ['barrel', 96, L.barrelP, 'center', 16, L.centerP],
+      ['center', 80, L.centerP, 'third', 10, L.thirdP],
+      ['third', 75, L.thirdP, 'fourth', 10, L.fourthP],
+    ];
+    for (const [a, NA, PA, b, LB, PB] of pairs) {
+      const alphaA = Math.atan2(PB[1] - PA[1], PB[0] - PA[0]);
+      const alphaB = alphaA + Math.PI;
+      const fA = frac(((alphaA - d[a]) * NA) / TAU);
+      const fB = frac((alphaB * LB) / TAU);
+      d[b] = frac(fA + fB - 0.5) * TAU / LB;
+    }
+    L.phase = d;
+  }
+
   L.hourP   = [0, -228];    /* regulator hour ring, floating dial furniture */
   L.chronoP = [252, -6];    /* 30-minute counter */
   L.moonP   = L.barrelP;    /* moon lives in the barrel cover aperture */
@@ -1562,17 +1585,19 @@ E.render = (() => {
 
     /* ---- 1 barrel + moon ---- */
     const BP = L().barrelP;
-    drawSprite(ctx, F().barrel, BP[0], BP[1], A.barrel, lift(1));
+    const PH = L().phase;
+    drawSprite(ctx, F().barrel, BP[0], BP[1], A.barrel + PH.barrel, lift(1));
     drawSprite(ctx, F().moon, BP[0], BP[1], A.moon, lift(1));
     drawSprite(ctx, F().cover, BP[0], BP[1], 0, lift(1));
+    /* the ratchet only turns when the crown turns it — a real click holds it */
     E.fx.ratchetSpin *= .92;
-    E.fx._ratchetA = (E.fx._ratchetA || 0) + E.fx.ratchetSpin * dt / 400 + (T.phase !== 'stop' ? dt / 90000 : 0);
+    E.fx._ratchetA = (E.fx._ratchetA || 0) + E.fx.ratchetSpin * dt / 400;
 
-    /* ---- 2 going train ---- */
+    /* ---- 2 going train (phase-twisted so meshing teeth interleave) ---- */
     drawSprite(ctx, F().hourW, L().hourP[0], L().hourP[1], A.hour, lift(2));
-    drawSprite(ctx, F().centerW, 0, 0, A.center, lift(2));
-    drawSprite(ctx, F().thirdW, L().thirdP[0], L().thirdP[1], A.third, lift(2));
-    drawSprite(ctx, F().fourthW, L().fourthP[0], L().fourthP[1], A.seconds, lift(2));
+    drawSprite(ctx, F().centerW, 0, 0, A.center + PH.center, lift(2));
+    drawSprite(ctx, F().thirdW, L().thirdP[0], L().thirdP[1], A.third + PH.third, lift(2));
+    drawSprite(ctx, F().fourthW, L().fourthP[0], L().fourthP[1], A.seconds + PH.fourth, lift(2));
     drawSprite(ctx, F().escapeW, L().escapeP[0], L().escapeP[1], A.escape, lift(2));
 
     /* ---- 3 gongs + hammers ---- */
@@ -1684,7 +1709,7 @@ E.render = (() => {
    The tick is scheduled on the AUDIO clock against the movement's 200ms
    grid, so what you hear is what the balance does. */
 E.sound = (() => {
-  let ctx = null, master = null, comp = null, tickBus = null;
+  let ctx = null, master = null, comp = null, tickBus = null, gongBus = null;
   let enabled = E.store.get('sound', true);   /* intent; hardware may still be off */
   let repeaterEndsAt = 0;                     /* audio-clock time the chime owns */
   let lastHourStruck = -1, pendingHour = null;
@@ -1702,6 +1727,17 @@ E.sound = (() => {
     tickBus = ctx.createGain();
     tickBus.gain.value = 1;
     tickBus.connect(master);
+    /* the case body: gongs ring into a short damped reflection so they
+       sound struck inside a watch, not in a void */
+    gongBus = ctx.createGain();
+    gongBus.gain.value = 1;
+    gongBus.connect(master);
+    const body = ctx.createDelay(0.1); body.delayTime.value = 0.043;
+    const bodyFb = ctx.createGain(); bodyFb.gain.value = 0.32;
+    const bodyLp = ctx.createBiquadFilter(); bodyLp.type = 'lowpass'; bodyLp.frequency.value = 2600;
+    gongBus.connect(body); body.connect(bodyLp).connect(bodyFb).connect(body);
+    const bodyOut = ctx.createGain(); bodyOut.gain.value = 0.5;
+    bodyLp.connect(bodyOut).connect(master);
     document.addEventListener('visibilitychange', () => {
       if (!ctx) return;
       if (document.hidden) {
@@ -1772,11 +1808,11 @@ E.sound = (() => {
       o.type = 'sine';
       o.frequency.value = f0 * ratio * (1 + (Math.random() - .5) * 0.0015);
       const peak = 0.22 * amp * vel;
-      const decay = 3.2 / Math.sqrt(ratio);
+      const decay = (ratio === 1 ? 4.1 : 3.2) / Math.sqrt(ratio);
       g.gain.setValueAtTime(0.0001, when);
       g.gain.exponentialRampToValueAtTime(peak, when + 0.004);
       g.gain.exponentialRampToValueAtTime(0.0001, when + decay);
-      o.connect(g).connect(master);
+      o.connect(g).connect(gongBus);
       o.start(when); o.stop(when + decay + 0.1);
     }
     /* strike */
@@ -1788,7 +1824,7 @@ E.sound = (() => {
     const bp = ctx.createBiquadFilter();
     bp.type = 'bandpass'; bp.frequency.value = f0 * 4; bp.Q.value = 2;
     const g = ctx.createGain(); g.gain.value = 0.12 * vel;
-    n.connect(bp).connect(g).connect(master);
+    n.connect(bp).connect(g).connect(gongBus);
     n.start(when);
   }
 
@@ -2126,7 +2162,11 @@ E.sound = (() => {
     const k = e.key;
     if (e.repeat && !['w', 'W', '+', '=', '-', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(k)) return;
     switch (k) {
-      case 'w': case 'W': windOnce(); return;
+      case 'w': case 'W':
+        windOnce();
+        clearTimeout(E._windSayT);
+        E._windSayT = setTimeout(announceReserve, 650); /* bare-key winders hear the reserve too */
+        return;
       case 'r': case 'R': E.sound.repeater(); return;
       case 'c': case 'C': chronoToggle(); return;
       case 'x': case 'X': chronoReset(); return;
