@@ -16,4 +16,17 @@
     E.render.wake();
   };
   btn.addEventListener('click', E.planToggle);
+
+  /* ---------- the caseback legend ---------- */
+  const legendBtn = document.getElementById('legend-toggle');
+  const legend = document.getElementById('legend');
+  const legendClose = document.getElementById('legend-close');
+  E.showLegend = (open) => {
+    legend.hidden = !open;
+    legendBtn.setAttribute('aria-expanded', String(open));
+    if (open) legendClose.focus();
+  };
+  legendBtn.addEventListener('click', () => E.showLegend(legend.hidden));
+  legendClose.addEventListener('click', () => E.showLegend(false));
+  addEventListener('keydown', (e) => { if (e.key === 'Escape' && !legend.hidden) E.showLegend(false); });
 })();

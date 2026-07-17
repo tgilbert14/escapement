@@ -18,8 +18,25 @@
 
   <nav class="deck" id="deck" aria-label="Views and sound">
     <button id="plan-toggle" disabled aria-pressed="false">Plan</button>
+    <button id="legend-toggle" disabled aria-expanded="false" aria-controls="legend">Legend</button>
     <button id="sound-toggle" disabled aria-pressed="false">Sound</button>
   </nav>
+
+  <section class="legend" id="legend" aria-label="Caseback legend" hidden>
+    <div class="plate">
+      <h2>The Escapement</h2>
+      <p class="what">A mechanical watch the size of a room, keeping your actual time through a real gear train.</p>
+      <ul>
+        <li><strong>The crown</strong>, right flank — hold to wind. <kbd>W</kbd><br><em>She runs down if you leave her. She remembers.</em></li>
+        <li><strong>The slide</strong>, left flank — pull and let go: the gongs chime the hour, the quarters, the minutes. <kbd>R</kbd></li>
+        <li><strong>The pushers</strong> — chronograph. <kbd>C</kbd> start · <kbd>X</kbd> reset</li>
+        <li><strong>Plan</strong> lifts the movement into its eight layers, still running. <kbd>P</kbd></li>
+        <li>Pinch or scroll to lean in. <kbd>+</kbd> <kbd>−</kbd> <kbd>0</kbd>, arrows to look around.</li>
+        <li>After dark the lume comes up — and the moon in the barrel is the real one.</li>
+      </ul>
+      <button id="legend-close" class="plate-close">Back to the movement</button>
+    </div>
+  </section>
 
   <p class="sr-only" role="status" aria-live="polite" id="sr-status"></p>
 

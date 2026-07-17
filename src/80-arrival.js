@@ -34,6 +34,12 @@
     setTimeout(() => {
       E.say(`A mechanical watch keeping your time: ${E.time.timeLabel()}. Hold the crown to wind it; pull the slide to hear the time.`);
     }, 1200);
+
+    /* first visit: the caseback legend presents itself, once */
+    if (!E.store.get('greeted', false)) {
+      E.store.set('greeted', true);
+      setTimeout(() => { if (E.showLegend) E.showLegend(true); }, 2800);
+    }
   } catch (err) {
     /* a boot throw must never leave a black room: surface the brochure line */
     console.error(err);

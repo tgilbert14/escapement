@@ -237,6 +237,62 @@ a.skip:focus-visible {
 .deck button[aria-pressed="true"]::before { content: '\25CF\2002'; font-size: 8px; vertical-align: 1px; } /* state survives without color */
 .deck button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
+/* ---- the caseback legend: engraved, the way a caseback explains a watch ---- */
+.legend {
+  position: fixed; inset: 0; z-index: 45;
+  display: grid; place-items: center;
+  background: rgba(6,7,9,.72);
+  backdrop-filter: blur(3px);
+  padding: 4vmin;
+}
+.plate {
+  width: min(480px, 92vw);
+  background:
+    radial-gradient(120% 130% at 30% 20%, #23262c 0%, #16181c 60%, #1d2025 100%);
+  color: var(--paper);
+  border-radius: 12px;
+  border: 1px solid #3a3e46;
+  outline: 2px solid var(--brass-lo);
+  outline-offset: -8px;
+  box-shadow: 0 30px 80px rgba(0,0,0,.75), inset 0 1px 0 rgba(255,255,255,.08);
+  padding: 24px 30px 18px;
+}
+.plate h2 {
+  font-variant: small-caps; font-weight: 400;
+  letter-spacing: .2em; font-size: 20px;
+  color: var(--brass);
+  text-align: center;
+  border-bottom: 1px solid var(--brass-lo);
+  padding-bottom: 9px; margin-bottom: 11px;
+}
+.plate .what {
+  font-size: 13.5px; line-height: 1.55; text-align: center;
+  color: var(--paper); margin-bottom: 12px;
+  font-variant: small-caps; letter-spacing: .05em;
+}
+.plate ul { list-style: none; }
+.plate li { font-size: 12.5px; line-height: 1.65; padding: 3.5px 0; color: var(--paper-dim); }
+.plate strong { color: var(--paper); font-weight: 400; font-variant: small-caps; letter-spacing: .08em; }
+.plate em { color: var(--brass); font-style: italic; }
+.plate kbd {
+  font-family: var(--mono); font-size: 10.5px;
+  color: var(--blued-hi);
+  background: #101216; border: 1px solid #33363e; border-bottom-width: 2px;
+  border-radius: 3px; padding: 0 5px;
+}
+.plate-close {
+  display: block; margin: 14px auto 0;
+  font-family: var(--mono);
+  font-size: 10px; letter-spacing: .28em; text-transform: uppercase;
+  color: var(--ink);
+  background: var(--brass);
+  border: 0; border-radius: 999px;
+  padding: 11px 26px 10px;
+  cursor: pointer;
+}
+.plate-close:hover { background: var(--brass-hi); }
+.plate-close:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+
 /* ---- arrival ---- */
 .masthead, .deck { opacity: 1; transition: opacity 1.2s ease .2s; }
 body.arriving .masthead, body.arriving .deck { opacity: 0; }
@@ -295,8 +351,25 @@ body.arriving .masthead, body.arriving .deck { opacity: 0; }
 
   <nav class="deck" id="deck" aria-label="Views and sound">
     <button id="plan-toggle" disabled aria-pressed="false">Plan</button>
+    <button id="legend-toggle" disabled aria-expanded="false" aria-controls="legend">Legend</button>
     <button id="sound-toggle" disabled aria-pressed="false">Sound</button>
   </nav>
+
+  <section class="legend" id="legend" aria-label="Caseback legend" hidden>
+    <div class="plate">
+      <h2>The Escapement</h2>
+      <p class="what">A mechanical watch the size of a room, keeping your actual time through a real gear train.</p>
+      <ul>
+        <li><strong>The crown</strong>, right flank — hold to wind. <kbd>W</kbd><br><em>She runs down if you leave her. She remembers.</em></li>
+        <li><strong>The slide</strong>, left flank — pull and let go: the gongs chime the hour, the quarters, the minutes. <kbd>R</kbd></li>
+        <li><strong>The pushers</strong> — chronograph. <kbd>C</kbd> start · <kbd>X</kbd> reset</li>
+        <li><strong>Plan</strong> lifts the movement into its eight layers, still running. <kbd>P</kbd></li>
+        <li>Pinch or scroll to lean in. <kbd>+</kbd> <kbd>−</kbd> <kbd>0</kbd>, arrows to look around.</li>
+        <li>After dark the lume comes up — and the moon in the barrel is the real one.</li>
+      </ul>
+      <button id="legend-close" class="plate-close">Back to the movement</button>
+    </div>
+  </section>
 
   <p class="sr-only" role="status" aria-live="polite" id="sr-status"></p>
 
@@ -2210,6 +2283,19 @@ E.sound = (() => {
     E.render.wake();
   };
   btn.addEventListener('click', E.planToggle);
+
+  /* ---------- the caseback legend ---------- */
+  const legendBtn = document.getElementById('legend-toggle');
+  const legend = document.getElementById('legend');
+  const legendClose = document.getElementById('legend-close');
+  E.showLegend = (open) => {
+    legend.hidden = !open;
+    legendBtn.setAttribute('aria-expanded', String(open));
+    if (open) legendClose.focus();
+  };
+  legendBtn.addEventListener('click', () => E.showLegend(legend.hidden));
+  legendClose.addEventListener('click', () => E.showLegend(false));
+  addEventListener('keydown', (e) => { if (e.key === 'Escape' && !legend.hidden) E.showLegend(false); });
 })();
 
 
@@ -2249,6 +2335,12 @@ E.sound = (() => {
     setTimeout(() => {
       E.say(`A mechanical watch keeping your time: ${E.time.timeLabel()}. Hold the crown to wind it; pull the slide to hear the time.`);
     }, 1200);
+
+    /* first visit: the caseback legend presents itself, once */
+    if (!E.store.get('greeted', false)) {
+      E.store.set('greeted', true);
+      setTimeout(() => { if (E.showLegend) E.showLegend(true); }, 2800);
+    }
   } catch (err) {
     /* a boot throw must never leave a black room: surface the brochure line */
     console.error(err);
