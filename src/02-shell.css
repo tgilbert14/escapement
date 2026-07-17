@@ -190,15 +190,33 @@ a.skip:focus-visible {
 .deck button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
 /* ---- the caseback legend: engraved, the way a caseback explains a watch ---- */
+/* the legend DOCKS beside the movement — nothing between you and the metal.
+   No scrim, no modal: the room stays alive while the plate is out. */
 .legend {
-  position: fixed; inset: 0; z-index: 45;
-  display: grid; place-items: center;
-  background: rgba(6,7,9,.72);
-  backdrop-filter: blur(3px);
-  padding: 4vmin;
+  position: fixed; z-index: 35;
+  left: 22px; top: 50%;
+  transform: translateY(-50%);
+  max-height: min(78vh, 640px);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.legend .plate { animation: plateIn .45s cubic-bezier(.2,.9,.25,1); }
+@keyframes plateIn {
+  from { opacity: 0; transform: translateX(-26px); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .legend .plate { animation: none; }
+}
+@media (max-width: 900px) {
+  .legend {
+    left: 8px; right: 8px; top: auto; bottom: 66px;
+    transform: none;
+    max-height: 46vh; /* the movement stays in view above the plate */
+  }
 }
 .plate {
-  width: min(480px, 92vw);
+  width: min(340px, calc(100vw - 20px));
   background:
     radial-gradient(120% 130% at 30% 20%, #23262c 0%, #16181c 60%, #1d2025 100%);
   color: var(--paper);
@@ -207,23 +225,23 @@ a.skip:focus-visible {
   outline: 2px solid var(--brass-lo);
   outline-offset: -8px;
   box-shadow: 0 30px 80px rgba(0,0,0,.75), inset 0 1px 0 rgba(255,255,255,.08);
-  padding: 24px 30px 18px;
+  padding: 16px 20px 14px;
 }
 .plate h2 {
   font-variant: small-caps; font-weight: 400;
-  letter-spacing: .2em; font-size: 20px;
+  letter-spacing: .2em; font-size: 17px;
   color: var(--brass);
   text-align: center;
   border-bottom: 1px solid var(--brass-lo);
   padding-bottom: 9px; margin-bottom: 11px;
 }
 .plate .what {
-  font-size: 13.5px; line-height: 1.55; text-align: center;
-  color: var(--paper); margin-bottom: 12px;
+  font-size: 12.5px; line-height: 1.5; text-align: center;
+  color: var(--paper); margin-bottom: 10px;
   font-variant: small-caps; letter-spacing: .05em;
 }
 .plate ul { list-style: none; }
-.plate li { font-size: 12.5px; line-height: 1.65; padding: 3.5px 0; color: var(--paper-dim); }
+.plate li { font-size: 12px; line-height: 1.6; padding: 3px 0; color: var(--paper-dim); }
 .plate strong { color: var(--paper); font-weight: 400; font-variant: small-caps; letter-spacing: .08em; }
 .plate em { color: var(--brass); font-style: italic; }
 .plate kbd {

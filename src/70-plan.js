@@ -17,26 +17,29 @@
   };
   btn.addEventListener('click', E.planToggle);
 
-  /* ---------- the caseback legend: a real dialog, focus held and returned ---------- */
+  /* ---------- the caseback legend: a DOCKED plate, never a wall ----------
+     It stands beside the movement; the room stays live around it. When the
+     visitor starts actually working the watch, it excuses itself. */
   const legendBtn = document.getElementById('legend-toggle');
   const legend = document.getElementById('legend');
   const legendClose = document.getElementById('legend-close');
-  let legendReturn = null;
+  let legendReturn = null, legendAuto = false;
   E.showLegend = (open, stealFocus = true) => {
     legend.hidden = !open;
     legendBtn.setAttribute('aria-expanded', String(open));
+    legendAuto = open && !stealFocus;
     if (open) {
       legendReturn = document.activeElement;
       if (stealFocus) legendClose.focus();
-    } else if (legendReturn && legendReturn.focus) {
-      legendReturn.focus();
+    } else {
+      if (stealFocus && legendReturn && legendReturn.focus) legendReturn.focus();
       legendReturn = null;
     }
   };
-  legend.addEventListener('keydown', (e) => {
-    if (e.key === 'Tab') { e.preventDefault(); legendClose.focus(); } /* one tabbable: a loop of one */
-  });
-  legend.addEventListener('click', (e) => { if (e.target === legend) E.showLegend(false); });
+  /* the plate bows out once you start working the watch */
+  E.dismissLegendSoft = () => {
+    if (legendAuto && !legend.hidden) E.showLegend(false, false);
+  };
   legendBtn.addEventListener('click', () => E.showLegend(legend.hidden));
   legendClose.addEventListener('click', () => E.showLegend(false));
   addEventListener('keydown', (e) => { if (e.key === 'Escape' && !legend.hidden) E.showLegend(false); });

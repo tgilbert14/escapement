@@ -27,6 +27,7 @@
   };
 
   cv.addEventListener('pointerdown', (e) => {
+    if (E.dismissLegendSoft) E.dismissLegendSoft(); /* hands on the metal: the plate excuses itself */
     if (E.plan.on) return;
     cv.setPointerCapture(e.pointerId);
     ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -112,6 +113,7 @@
     E.render.wake();
   }
   const windStart = (e) => {
+    if (E.dismissLegendSoft) E.dismissLegendSoft();
     if (e.type === 'pointerdown') {
       e.preventDefault();
       if (e.pointerId !== undefined) { try { crown.setPointerCapture(e.pointerId); } catch { } }
